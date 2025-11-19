@@ -7,9 +7,10 @@ export const config = {
   
   // Session
   sessionSecret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+  secureCookies: process.env.SECURE_COOKIES === 'true', // Explicit control over secure cookies
   
   // CORS
-  allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || [],
+  allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || [],
   
   // Frontend URL (for production)
   frontendUrl: process.env.FRONTEND_URL || '',

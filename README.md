@@ -78,6 +78,7 @@ The project is a monorepo with the following structure:
 
 Para informações sobre build de imagens Docker e deploy em Kubernetes, consulte:
 - **[DOCKER.md](./DOCKER.md)** - Guia completo de build e configuração de imagens
+- **[CLOUDFLARE.md](./CLOUDFLARE.md)** - Configuração para deployment atrás de Cloudflare
 - **Dockerfiles separados:**
   - Backend: `packages/backend/Dockerfile`
   - Frontend: `packages/frontend/Dockerfile`
@@ -92,10 +93,33 @@ Para informações sobre build de imagens Docker e deploy em Kubernetes, consult
 docker-compose up -d
 ```
 
+### Deployment Público (Cloudflare/Reverse Proxy)
+
+Se você está fazendo deploy em um servidor com IP público ou atrás do Cloudflare:
+
+```bash
+# Configure automaticamente
+./setup-cloudflare.sh
+
+# Ou manualmente crie um arquivo .env
+cat > .env << EOF
+SESSION_SECRET=$(openssl rand -base64 32)
+ALLOWED_ORIGINS=https://yourdomain.com
+SECURE_COOKIES=true
+EOF
+
+# Rebuild e deploy
+docker-compose down && docker-compose build && docker-compose up -d
+```
+
+**⚠️ Importante:** CORS e cookies precisam ser configurados corretamente. Veja [CLOUDFLARE.md](./CLOUDFLARE.md) para detalhes.
+
 ### Variáveis de Ambiente
 
 **Backend (packages/backend):**
 - `SESSION_SECRET` - **Obrigatório** - Chave secreta para sessões
+- `ALLOWED_ORIGINS` - **Obrigatório para produção** - Domínios permitidos (separados por vírgula)
+- `SECURE_COOKIES` - `true` se acessando via HTTPS (típico com Cloudflare)
 - `NODE_ENV` - Ambiente (development/production)
 - `PORT` - Porta do servidor (padrão: 3001)
 

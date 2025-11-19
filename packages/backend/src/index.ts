@@ -35,6 +35,9 @@ declare module 'express-session' {
 const app = express();
 const port = config.port;
 
+// Trust proxy - important when behind Cloudflare or any reverse proxy
+app.set('trust proxy', 1);
+
 app.use(express.json());
 
 // Add request logging middleware
@@ -43,32 +46,53 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration for production
-if (config.isProduction() && config.allowedOrigins.length > 0) {
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin && config.allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
+// CORS configuration - more permissive for Cloudflare/proxy scenarios
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Allow configured origins or same-origin requests
+  if (config.allowedOrigins.length > 0) {
+    // Check if origin matches any allowed origin (including wildcards)
+    const isAllowed = config.allowedOrigins.some(allowedOrigin => {
+      if (allowedOrigin === '*') return true;
+      if (allowedOrigin.includes('*')) {
+        const pattern = new RegExp('^' + allowedOrigin.replace(/\*/g, '.*') + '$');
+        return origin && pattern.test(origin);
+      }
+      return origin === allowedOrigin;
+    });
+    
+    if (isAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     }
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-    next();
-  });
-}
+  } else if (config.isDevelopment()) {
+    // In development, allow all origins
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(session({
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: true,
   cookie: { 
-    secure: config.isProduction(),
+    secure: config.secureCookies, // Use explicit config instead of auto-detecting production
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: config.isProduction() ? 'none' : 'lax', // 'none' allows cross-site cookies when secure=true
+  },
+  proxy: true, // Trust proxy headers (important for Cloudflare)
 }));
 
 // Helper function to get KubeConfig from session

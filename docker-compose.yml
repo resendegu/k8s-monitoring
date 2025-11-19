@@ -13,6 +13,11 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - SESSION_SECRET=${SESSION_SECRET:-change-this-secret}
+      # CORS configuration for Cloudflare/public deployments
+      # Add your domain(s) here, comma-separated
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      # Set to true if accessing via HTTPS (even if backend is HTTP behind proxy)
+      - SECURE_COOKIES=${SECURE_COOKIES:-false}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/check-status', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
