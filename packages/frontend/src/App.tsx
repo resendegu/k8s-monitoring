@@ -173,7 +173,6 @@ function App() {
             <Button 
               variant={isConnected ? 'secondary' : 'primary'}
               onClick={() => setConnectDialogOpen(true)}
-              size="sm"
             >
               {isConnected ? '🟢 Connected' : '🔴 Connect'}
             </Button>
