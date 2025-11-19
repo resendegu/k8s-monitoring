@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardTitle } from './ui';
 import { 
@@ -209,40 +209,38 @@ Please analyze these metrics and provide:
     }
   };
 
-  const displayData = useMemo(() => {
-    const rawData = isConnected ? data : mockData;
-    
-    // Ensure data has the expected structure with nested CPU/memory metrics
-    if (rawData && rawData.nodes) {
-      // If nodes.cpu is a simple number (old format), convert to new format
-      if (typeof rawData.nodes.cpu === 'number' || !rawData.nodes.cpu?.used) {
-        return {
-          ...rawData,
-          nodes: {
-            ...rawData.nodes,
-            cpu: {
-              used: typeof rawData.nodes.cpu === 'number' ? rawData.nodes.cpu : 45,
-              total: 100,
-              requests: 30,
-              limits: 80,
-            },
-            memory: {
-              used: typeof rawData.nodes.memory === 'number' ? rawData.nodes.memory : 62,
-              total: 100,
-              requests: 48,
-              limits: 85,
-            },
+  // Compute display data without memoization to avoid React Compiler issues
+  const rawData = isConnected ? data : mockData;
+  let displayData = rawData || mockData;
+  
+  // Ensure data has the expected structure with nested CPU/memory metrics
+  if (displayData && displayData.nodes) {
+    // If nodes.cpu is a simple number (old format), convert to new format
+    if (typeof displayData.nodes.cpu === 'number' || !displayData.nodes.cpu?.used) {
+      displayData = {
+        ...displayData,
+        nodes: {
+          ...displayData.nodes,
+          cpu: {
+            used: typeof displayData.nodes.cpu === 'number' ? displayData.nodes.cpu : 45,
+            total: 100,
+            requests: 30,
+            limits: 80,
           },
-          pods: {
-            ...rawData.pods,
-            capacity: rawData.pods?.capacity || 110,
+          memory: {
+            used: typeof displayData.nodes.memory === 'number' ? displayData.nodes.memory : 62,
+            total: 100,
+            requests: 48,
+            limits: 85,
           },
-        };
-      }
+        },
+        pods: {
+          ...displayData.pods,
+          capacity: displayData.pods?.capacity || 110,
+        },
+      };
     }
-    
-    return rawData || mockData;
-  }, [isConnected, data]);
+  }
 
   if (isLoading && isConnected) {
     return (
