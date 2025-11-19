@@ -225,38 +225,8 @@ Please analyze these metrics and provide:
     }
   };
 
-  // Compute display data without memoization to avoid React Compiler issues
-  const rawData = isConnected ? data : mockData;
-  let displayData = rawData || mockData;
-  
-  // Ensure data has the expected structure with nested CPU/memory metrics
-  if (displayData && displayData.nodes) {
-    // If nodes.cpu is a simple number (old format), convert to new format
-    if (typeof displayData.nodes.cpu === 'number' || !displayData.nodes.cpu?.used) {
-      displayData = {
-        ...displayData,
-        nodes: {
-          ...displayData.nodes,
-          cpu: {
-            used: typeof displayData.nodes.cpu === 'number' ? displayData.nodes.cpu : 45,
-            total: 100,
-            requests: 30,
-            limits: 80,
-          },
-          memory: {
-            used: typeof displayData.nodes.memory === 'number' ? displayData.nodes.memory : 62,
-            total: 100,
-            requests: 48,
-            limits: 85,
-          },
-        },
-        pods: {
-          ...displayData.pods,
-          capacity: displayData.pods?.capacity || 110,
-        },
-      };
-    }
-  }
+  // Use real data when connected, mock data in demo mode
+  const displayData = (isConnected ? data : mockData) || mockData;
 
   if (isLoading && isConnected) {
     return (
