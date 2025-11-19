@@ -46,16 +46,48 @@ export default function AIAssistant() {
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      // Call the AI API with conversation history
+      const conversationMessages = [...messages, userMessage].map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: conversationMessages,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get AI response');
+      }
+
+      const data = await response.json();
       const aiMessage: Message = {
         id: messages.length + 2,
         role: 'assistant',
-        content: generateAIResponse(input),
+        content: data.response,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (error: any) {
+      console.error('Error getting AI response:', error);
+      const errorMessage: Message = {
+        id: messages.length + 2,
+        role: 'assistant',
+        content: `Sorry, I encountered an error: ${error.message}. Please make sure you have configured an AI provider in the settings.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -150,34 +182,4 @@ export default function AIAssistant() {
       </Card>
     </div>
   );
-}
-
-function generateAIResponse(userInput: string): string {
-  const input = userInput.toLowerCase();
-  
-  if (input.includes('pod') || input.includes('pods')) {
-    return 'Based on your cluster metrics, you have 25 pods running across 4 nodes. The pods are distributed evenly, which is good for high availability.';
-  }
-  
-  if (input.includes('node') || input.includes('nodes')) {
-    return 'Your cluster currently has 4 worker nodes. Node-1 and Node-2 are showing higher resource usage (61% and 55% memory respectively), which is within normal operating parameters.';
-  }
-  
-  if (input.includes('resource') || input.includes('cpu') || input.includes('memory')) {
-    return 'Cluster resource utilization looks healthy overall. CPU usage is moderate across all nodes (2-12%), but memory usage is higher on some nodes (up to 61%). Consider scaling horizontally if memory usage consistently exceeds 70%.';
-  }
-  
-  if (input.includes('error') || input.includes('problem') || input.includes('issue')) {
-    return 'To help diagnose issues, I will need more specific information. Are you seeing errors in specific pods, nodes, or deployments?';
-  }
-  
-  if (input.includes('scale') || input.includes('scaling')) {
-    return 'For scaling recommendations, I suggest implementing Horizontal Pod Autoscaler (HPA) based on your current metrics.';
-  }
-
-  if (input.includes('namespace')) {
-    return 'You have 6 active namespaces in your cluster. The production namespace has the most workloads (18 pods, 12 deployments), followed by kube-system with 24 pods for system components.';
-  }
-  
-  return 'I can help you with analyzing node and pod health, resource utilization recommendations, troubleshooting deployment issues, scaling strategies, and namespace organization. Could you be more specific about what you would like to know?';
 }
