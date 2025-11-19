@@ -12,7 +12,9 @@ import {
   HardDrive,
   Network,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Sparkles,
+  X
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -75,8 +77,80 @@ const fetchOverviewData = async () => {
   return data as OverviewData;
 };
 
+// Generate mock AI insights based on cluster metrics
+function generateMockAIInsights(
+  data: OverviewData, 
+  cpuPercent: number, 
+  memPercent: number, 
+  storagePercent: number
+): string {
+  const insights = [];
+  
+  // Overall health assessment
+  if (data.nodes.ready === data.nodes.total && data.pods.failed === 0) {
+    insights.push('✅ **Overall Health: Excellent**\nYour cluster is running smoothly with all nodes ready and no pod failures.');
+  } else if (data.pods.failed > 0) {
+    insights.push(`⚠️ **Overall Health: Attention Required**\nYou have ${data.pods.failed} failed pod(s) that need investigation.`);
+  }
+  
+  // CPU analysis
+  if (cpuPercent < 50) {
+    insights.push(`🔵 **CPU Utilization: Healthy (${cpuPercent}%)**\nCPU usage is at a comfortable level. Good headroom for traffic spikes.`);
+  } else if (cpuPercent < 80) {
+    insights.push(`🟡 **CPU Utilization: Moderate (${cpuPercent}%)**\nCPU usage is moderate. Consider monitoring for sustained high usage patterns.`);
+  } else {
+    insights.push(`🔴 **CPU Utilization: High (${cpuPercent}%)**\nCPU usage is high. Consider horizontal pod autoscaling or adding nodes.`);
+  }
+  
+  // Memory analysis
+  if (memPercent < 60) {
+    insights.push(`🔵 **Memory Utilization: Healthy (${memPercent}%)**\nMemory usage is well within limits.`);
+  } else if (memPercent < 85) {
+    insights.push(`🟡 **Memory Utilization: Watch (${memPercent}%)**\nMemory is moderately high. Monitor for memory leaks in applications.`);
+  } else {
+    insights.push(`🔴 **Memory Utilization: Critical (${memPercent}%)**\nMemory usage is very high. Consider increasing node capacity or optimizing workloads.`);
+  }
+  
+  // Pod capacity
+  const podPercent = Math.round((data.pods.total / data.pods.capacity) * 100);
+  if (podPercent < 70) {
+    insights.push(`📦 **Pod Capacity: Good (${podPercent}%)**\nYou have sufficient pod capacity for scaling.`);
+  } else if (podPercent < 90) {
+    insights.push(`📦 **Pod Capacity: Limited (${podPercent}%)**\nConsider adding nodes if you plan to scale workloads.`);
+  }
+  
+  // Storage analysis
+  if (data.storage && storagePercent > 70) {
+    insights.push(`💾 **Storage: Attention (${storagePercent}%)**\nStorage usage is elevated. Plan for capacity expansion.`);
+  }
+  
+  // Recommendations
+  insights.push('\n**💡 Recommendations:**');
+  
+  if (cpuPercent > 70 || memPercent > 70) {
+    insights.push('• Consider implementing Horizontal Pod Autoscaler (HPA) for automatic scaling');
+    insights.push('• Review resource requests and limits for workloads');
+  }
+  
+  if (data.pods.pending > 0) {
+    insights.push(`• Investigate ${data.pods.pending} pending pod(s) - may indicate resource constraints`);
+  }
+  
+  if (data.events && data.events.warnings > 0) {
+    insights.push(`• Review ${data.events.warnings} cluster warning(s) for potential issues`);
+  }
+  
+  insights.push('• Regularly update Kubernetes version and container images for security');
+  insights.push('• Monitor trends over time to predict capacity needs');
+  
+  return insights.join('\n\n');
+}
+
 export default function Overview({ isConnected }: { isConnected: boolean }) {
   const [timeSeriesData] = useState(generateTimeSeriesData());
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string>('');
   
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['overviewData'],
@@ -85,6 +159,55 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
     refetchInterval: 10000,
     initialData: isConnected ? undefined : mockData,
   });
+
+  const analyzeMetrics = async () => {
+    // Allow AI analysis in demo mode too
+    setShowAIDialog(true);
+    setAiAnalyzing(true);
+    setAiInsights('Analyzing your cluster metrics with AI...');
+    
+    try {
+      // Use the current display data to create a context for AI
+      // This will be used when connecting to real AI APIs
+      /* const metricsContext = `
+Current Cluster Metrics:
+- Nodes: ${displayData.nodes.ready}/${displayData.nodes.total} ready
+- Pods: ${displayData.pods.running}/${displayData.pods.total} running (${displayData.pods.pending} pending, ${displayData.pods.failed} failed)
+- CPU Usage: ${cpuUsagePercent}% (${displayData.nodes?.cpu?.used}/${displayData.nodes?.cpu?.total} cores)
+- Memory Usage: ${memUsagePercent}% (${displayData.nodes?.memory?.used}/${displayData.nodes?.memory?.total} GB)
+- Namespaces: ${displayData.namespaces.total}
+- Deployments: ${displayData.deployments?.available || 0} available
+- Storage: ${displayData.storage ? `${storagePercent}% used (${displayData.storage.used}/${displayData.storage.total} GB)` : 'N/A'}
+- Events: ${displayData.events ? `${displayData.events.warnings} warnings, ${displayData.events.errors} errors` : 'N/A'}
+
+Please analyze these metrics and provide:
+1. Overall cluster health assessment
+2. Potential issues or concerns
+3. Resource optimization recommendations
+4. Capacity planning suggestions
+      `.trim(); */
+      
+      // For now, generate mock insights since we need API keys for real AI
+      setTimeout(() => {
+        const mockInsights = generateMockAIInsights(displayData, cpuUsagePercent, memUsagePercent, storagePercent);
+        setAiInsights(mockInsights);
+        setAiAnalyzing(false);
+      }, 2000);
+      
+      // TODO: Uncomment this when you have AI API keys configured
+      // const response = await axios.post('/api/ai/analyze', {
+      //   apiKey: 'YOUR_API_KEY',
+      //   provider: 'gemini', // or 'openai'
+      //   question: metricsContext
+      // });
+      // setAiInsights(response.data.analysis);
+      // setAiAnalyzing(false);
+    } catch (error) {
+      console.error('AI Analysis error:', error);
+      setAiInsights('Failed to analyze metrics. Please try again later.');
+      setAiAnalyzing(false);
+    }
+  };
 
   const displayData = useMemo(() => {
     const rawData = isConnected ? data : mockData;
@@ -156,237 +279,238 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
     : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 text-blue-400 text-sm font-medium mb-2">
-          <Activity size={16} />
-          <span>CLUSTER OVERVIEW</span>
+    <div className="space-y-4">
+      {/* Compact Header with AI Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Activity size={18} className="text-blue-400" />
+            <h2 className="text-2xl font-bold text-gray-100">Dashboard</h2>
+          </div>
+          <p className="text-gray-400 text-sm mt-0.5">
+            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </p>
         </div>
-        <h2 className="text-3xl font-bold text-gray-100">Dashboard</h2>
-        <p className="text-gray-400 mt-1">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-        </p>
+        
+        {/* AI Analysis Button */}
+        <button
+          onClick={analyzeMetrics}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
+        >
+          <Sparkles size={18} />
+          <span>AI Analysis</span>
+        </button>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left Column - Main Metrics */}
-        <div className="xl:col-span-2 space-y-6">
-          {/* Top Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* AI Analysis Dialog */}
+      {showAIDialog && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => !aiAnalyzing && setShowAIDialog(false)}
+        >
+          <div 
+            className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg">
+                  <Sparkles className="text-white" size={20} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-100">AI Cluster Analysis</h3>
+              </div>
+              {!aiAnalyzing && (
+                <button
+                  onClick={() => setShowAIDialog(false)}
+                  className="text-gray-400 hover:text-gray-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
+            
+            <div className="p-6">
+              {aiAnalyzing ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                  <p className="text-gray-400">Analyzing cluster metrics...</p>
+                </div>
+              ) : (
+                <div className="prose prose-invert max-w-none">
+                  <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">
+                    {aiInsights}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {!aiAnalyzing && (
+              <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 p-4 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowAIDialog(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition-all"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={analyzeMetrics}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg transition-all"
+                >
+                  <Sparkles size={16} />
+                  Re-analyze
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Grid - More Compact */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        {/* Left Column - Main Metrics (3 columns) */}
+        <div className="xl:col-span-3 space-y-4">
+          {/* Top Stats Row - Compact */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="hover:border-blue-500/30 transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Server className="text-blue-400" size={20} />
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <Server className="text-blue-400" size={18} />
                   <span className="text-xs text-green-400 font-medium">
                     {displayData.nodes.ready}/{displayData.nodes.total}
                   </span>
                 </div>
-                <p className="text-gray-400 text-xs mb-1">Nodes</p>
-                <p className="text-2xl font-bold text-gray-100">
+                <p className="text-gray-400 text-xs">Nodes</p>
+                <p className="text-xl font-bold text-gray-100">
                   {displayData.nodes.ready}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Ready</p>
               </CardContent>
             </Card>
 
             <Card className="hover:border-purple-500/30 transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <BoxIcon className="text-purple-400" size={20} />
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <BoxIcon className="text-purple-400" size={18} />
                   <span className="text-xs text-green-400 font-medium">
                     {displayData.pods.running}/{displayData.pods.total}
                   </span>
                 </div>
-                <p className="text-gray-400 text-xs mb-1">Pods</p>
-                <p className="text-2xl font-bold text-gray-100">
+                <p className="text-gray-400 text-xs">Pods</p>
+                <p className="text-xl font-bold text-gray-100">
                   {displayData.pods.running}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Running</p>
               </CardContent>
             </Card>
 
             <Card className="hover:border-cyan-500/30 transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Layers className="text-cyan-400" size={20} />
-                  <CheckCircle className="text-green-400" size={16} />
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <Layers className="text-cyan-400" size={18} />
+                  <CheckCircle className="text-green-400" size={14} />
                 </div>
-                <p className="text-gray-400 text-xs mb-1">Namespaces</p>
-                <p className="text-2xl font-bold text-gray-100">
+                <p className="text-gray-400 text-xs">Namespaces</p>
+                <p className="text-xl font-bold text-gray-100">
                   {displayData.namespaces.total}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Active</p>
               </CardContent>
             </Card>
 
             <Card className="hover:border-green-500/30 transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Activity className="text-green-400" size={20} />
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <Activity className="text-green-400" size={18} />
                   <span className="text-xs text-green-400 font-medium">100%</span>
                 </div>
-                <p className="text-gray-400 text-xs mb-1">Deployments</p>
-                <p className="text-2xl font-bold text-gray-100">
+                <p className="text-gray-400 text-xs">Deployments</p>
+                <p className="text-xl font-bold text-gray-100">
                   {displayData.deployments?.available || 0}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Available</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Resource Usage Charts */}
+          {/* Resource Usage Charts - Simplified */}
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <CardTitle>Resource Utilization</CardTitle>
-                <span className="text-xs text-gray-500">Real-time metrics</span>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <CardTitle className="text-base">Resource Utilization</CardTitle>
+                <span className="text-xs text-gray-500">Real-time</span>
               </div>
               
-              {/* CPU Usage */}
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-3">
+              {/* CPU Usage - Simplified */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Cpu size={18} className="text-blue-400" />
+                    <Cpu size={16} className="text-blue-400" />
                     <span className="text-sm font-medium text-gray-300">CPU</span>
                   </div>
-                  <span className="text-sm text-gray-400">{cpuUsagePercent}% used</span>
+                  <span className="text-sm text-gray-400">{cpuUsagePercent}%</span>
                 </div>
                 
-                <div className="space-y-2">
-                  {/* Used vs Total */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>Used</span>
-                      <span>{displayData.nodes?.cpu?.used || 0} cores</span>
-                    </div>
-                    <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all"
-                        style={{ width: `${cpuUsagePercent}%` }}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Requests */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>Requests</span>
-                      <span>{displayData.nodes?.cpu?.requests || 0} cores</span>
-                    </div>
-                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-purple-500/50"
-                        style={{ width: `${displayData.nodes?.cpu?.requests && displayData.nodes?.cpu?.total ? (displayData.nodes.cpu.requests / displayData.nodes.cpu.total) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Limits */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>Limits</span>
-                      <span>{displayData.nodes?.cpu?.limits || 0} cores</span>
-                    </div>
-                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-red-500/50"
-                        style={{ width: `${displayData.nodes?.cpu?.limits && displayData.nodes?.cpu?.total ? (displayData.nodes.cpu.limits / displayData.nodes.cpu.total) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
+                <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all"
+                    style={{ width: `${cpuUsagePercent}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+                  <span>{displayData.nodes?.cpu?.used || 0} / {displayData.nodes?.cpu?.total || 0} cores</span>
                 </div>
               </div>
 
-              {/* Memory Usage */}
+              {/* Memory Usage - Simplified */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <MemoryStick size={18} className="text-purple-400" />
+                    <MemoryStick size={16} className="text-purple-400" />
                     <span className="text-sm font-medium text-gray-300">Memory</span>
                   </div>
-                  <span className="text-sm text-gray-400">{memUsagePercent}% used</span>
+                  <span className="text-sm text-gray-400">{memUsagePercent}%</span>
                 </div>
                 
-                <div className="space-y-2">
-                  {/* Used vs Total */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>Used</span>
-                      <span>{displayData.nodes?.memory?.used || 0} GB</span>
-                    </div>
-                    <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-purple-500 to-pink-400 transition-all"
-                        style={{ width: `${memUsagePercent}%` }}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Requests */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>Requests</span>
-                      <span>{displayData.nodes?.memory?.requests || 0} GB</span>
-                    </div>
-                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-blue-500/50"
-                        style={{ width: `${displayData.nodes?.memory?.requests && displayData.nodes?.memory?.total ? (displayData.nodes.memory.requests / displayData.nodes.memory.total) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Limits */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                      <span>Limits</span>
-                      <span>{displayData.nodes?.memory?.limits || 0} GB</span>
-                    </div>
-                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-orange-500/50"
-                        style={{ width: `${displayData.nodes?.memory?.limits && displayData.nodes?.memory?.total ? (displayData.nodes.memory.limits / displayData.nodes.memory.total) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
+                <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-purple-500 to-pink-400 transition-all"
+                    style={{ width: `${memUsagePercent}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+                  <span>{displayData.nodes?.memory?.used || 0} / {displayData.nodes?.memory?.total || 0} GB</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Pod Capacity & Trends */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Pod Capacity */}
+          {/* Pod Capacity & Trends - Side by Side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Pod Capacity - Compact */}
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <CardTitle className="text-base">Pod Capacity</CardTitle>
-                  <BoxIcon className="text-purple-400" size={18} />
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <CardTitle className="text-sm">Pod Capacity</CardTitle>
+                  <BoxIcon className="text-purple-400" size={16} />
                 </div>
                 
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-4">
                   <div className="relative">
-                    <svg width="160" height="160" className="transform -rotate-90">
+                    <svg width="120" height="120" className="transform -rotate-90">
                       <circle
-                        cx="80"
-                        cy="80"
-                        r="70"
+                        cx="60"
+                        cy="60"
+                        r="50"
                         stroke="currentColor"
-                        strokeWidth="12"
+                        strokeWidth="10"
                         fill="none"
                         className="text-gray-700"
                       />
                       <circle
-                        cx="80"
-                        cy="80"
-                        r="70"
+                        cx="60"
+                        cy="60"
+                        r="50"
                         stroke="url(#podGradient)"
-                        strokeWidth="12"
+                        strokeWidth="10"
                         fill="none"
-                        strokeDasharray={`${2 * Math.PI * 70}`}
-                        strokeDashoffset={`${2 * Math.PI * 70 * (1 - podUsagePercent / 100)}`}
+                        strokeDasharray={`${2 * Math.PI * 50}`}
+                        strokeDashoffset={`${2 * Math.PI * 50 * (1 - podUsagePercent / 100)}`}
                         className="transition-all duration-500"
                         strokeLinecap="round"
                       />
@@ -398,45 +522,45 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
                       </defs>
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-3xl font-bold text-gray-100">{displayData.pods.total}</span>
+                      <span className="text-2xl font-bold text-gray-100">{displayData.pods.total}</span>
                       <span className="text-xs text-gray-400">of {displayData.pods.capacity}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-700/50">
+                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-700/50">
                   <div className="text-center">
-                    <p className="text-xs text-gray-500 mb-1">Running</p>
-                    <p className="text-lg font-bold text-green-400">{displayData.pods.running}</p>
+                    <p className="text-xs text-gray-500">Running</p>
+                    <p className="text-sm font-bold text-green-400">{displayData.pods.running}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-gray-500 mb-1">Pending</p>
-                    <p className="text-lg font-bold text-yellow-400">{displayData.pods.pending}</p>
+                    <p className="text-xs text-gray-500">Pending</p>
+                    <p className="text-sm font-bold text-yellow-400">{displayData.pods.pending}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-gray-500 mb-1">Failed</p>
-                    <p className="text-lg font-bold text-red-400">{displayData.pods.failed}</p>
+                    <p className="text-xs text-gray-500">Failed</p>
+                    <p className="text-sm font-bold text-red-400">{displayData.pods.failed}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Resource Trends */}
+            {/* Resource Trends - Compact */}
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <CardTitle className="text-base">24h Trends</CardTitle>
-                  <TrendingUp className="text-cyan-400" size={18} />
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <CardTitle className="text-sm">24h Trends</CardTitle>
+                  <TrendingUp className="text-cyan-400" size={16} />
                 </div>
                 
-                <div className="h-48 flex items-end justify-between gap-1">
+                <div className="h-32 flex items-end justify-between gap-1">
                   {timeSeriesData.slice(-12).map((point, idx) => {
                     const maxHeight = 100;
                     const cpuHeight = (point.cpu / maxHeight) * 100;
                     const memHeight = (point.memory / maxHeight) * 100;
                     
                     return (
-                      <div key={idx} className="flex-1 flex flex-col gap-1 items-center">
+                      <div key={idx} className="flex-1 flex flex-col gap-0.5 items-center">
                         <div 
                           className="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t transition-all hover:opacity-80"
                           style={{ height: `${cpuHeight}%` }}
@@ -452,13 +576,13 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
                   })}
                 </div>
                 
-                <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-gray-700/50">
+                <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-gray-700/50">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-400 rounded"></div>
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-blue-500 to-cyan-400 rounded"></div>
                     <span className="text-xs text-gray-400">CPU</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-pink-400 rounded"></div>
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-pink-400 rounded"></div>
                     <span className="text-xs text-gray-400">Memory</span>
                   </div>
                 </div>
@@ -467,55 +591,43 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
           </div>
         </div>
 
-        {/* Right Column - Additional Info */}
-        <div className="space-y-6">
-          {/* Date Card */}
-          <Card className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/20">
-            <CardContent className="p-6">
-              <div className="text-center">
-                <div className="text-blue-400 text-sm font-semibold mb-2">
-                  {new Date().toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()}
-                </div>
-                <div className="text-6xl font-bold text-gray-100 mb-1">
-                  {new Date().getDate()}
-                </div>
-                <div className="text-gray-400">
-                  {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </div>
+        {/* Right Column - Compact Additional Info */}
+        <div className="space-y-4">
+          {/* Cluster Health - Compact */}
+          <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="text-green-400" size={18} />
+                <CardTitle className="text-sm">Cluster Health</CardTitle>
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-700/50">
-                <div className="text-sm text-gray-400 text-center">
-                  Uptime: <span className="text-green-400 font-semibold">99.9%</span>
-                </div>
-              </div>
+              <p className="text-2xl font-bold text-green-400 mb-1">Healthy</p>
+              <p className="text-xs text-gray-400">
+                {displayData.nodes.ready} nodes, {displayData.pods.running} pods
+              </p>
             </CardContent>
           </Card>
 
-          {/* Storage */}
+          {/* Storage - Compact */}
           {displayData.storage && (
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <HardDrive className="text-orange-400" size={18} />
-                    <CardTitle className="text-base">Storage</CardTitle>
+                    <HardDrive className="text-orange-400" size={16} />
+                    <CardTitle className="text-sm">Storage</CardTitle>
                   </div>
                   <span className="text-xs text-gray-500">{storagePercent}%</span>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">Used</span>
-                    <span className="text-gray-100 font-medium">{displayData.storage.used} GB</span>
-                  </div>
+                <div className="space-y-2">
                   <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-orange-500 to-red-400"
                       style={{ width: `${storagePercent}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>0 GB</span>
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>{displayData.storage.used} GB used</span>
                     <span>{displayData.storage.total} GB</span>
                   </div>
                 </div>
@@ -523,32 +635,32 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
             </Card>
           )}
 
-          {/* Network */}
+          {/* Network - Compact */}
           {displayData.network && (
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Network className="text-cyan-400" size={18} />
-                  <CardTitle className="text-base">Network Traffic</CardTitle>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Network className="text-cyan-400" size={16} />
+                  <CardTitle className="text-sm">Network</CardTitle>
                 </div>
                 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm text-gray-400">Ingress</span>
+                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-gray-400">Ingress</span>
                     </div>
-                    <span className="text-lg font-bold text-gray-100">
+                    <span className="text-sm font-bold text-gray-100">
                       {displayData.network.ingress} <span className="text-xs text-gray-500">MB/s</span>
                     </span>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+                  <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm text-gray-400">Egress</span>
+                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-gray-400">Egress</span>
                     </div>
-                    <span className="text-lg font-bold text-gray-100">
+                    <span className="text-sm font-bold text-gray-100">
                       {displayData.network.egress} <span className="text-xs text-gray-500">MB/s</span>
                     </span>
                   </div>
@@ -557,46 +669,32 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
             </Card>
           )}
 
-          {/* Events/Alerts */}
+          {/* Events/Alerts - Compact */}
           {displayData.events && (
             <Card>
-              <CardContent className="p-6">
-                <CardTitle className="text-base mb-4">Recent Events</CardTitle>
+              <CardContent className="p-4">
+                <CardTitle className="text-sm mb-3">Events</CardTitle>
                 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="text-yellow-400" size={16} />
-                      <span className="text-sm text-gray-300">Warnings</span>
+                      <AlertTriangle className="text-yellow-400" size={14} />
+                      <span className="text-xs text-gray-300">Warnings</span>
                     </div>
-                    <span className="text-lg font-bold text-yellow-400">{displayData.events.warnings}</span>
+                    <span className="text-sm font-bold text-yellow-400">{displayData.events.warnings}</span>
                   </div>
                   
-                  <div className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <div className="flex items-center justify-between p-2 bg-red-500/10 border border-red-500/20 rounded">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="text-red-400" size={16} />
-                      <span className="text-sm text-gray-300">Errors</span>
+                      <AlertTriangle className="text-red-400" size={14} />
+                      <span className="text-xs text-gray-300">Errors</span>
                     </div>
-                    <span className="text-lg font-bold text-red-400">{displayData.events.errors}</span>
+                    <span className="text-sm font-bold text-red-400">{displayData.events.errors}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
-
-          {/* Cluster Health */}
-          <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle className="text-green-400" size={20} />
-                <CardTitle className="text-base">Cluster Health</CardTitle>
-              </div>
-              <p className="text-3xl font-bold text-green-400 mb-2">Healthy</p>
-              <p className="text-sm text-gray-400">
-                All systems operational. {displayData.nodes.ready} nodes ready, {displayData.pods.running} pods running.
-              </p>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
