@@ -4,7 +4,7 @@ import { env, HorizontalPodAutoscaler, StatelessApp, MySQL, Cron } from '@cubos/
 const isPrd = env.BRANCH_NAME === 'main';
 const namespace = 'ai-k8s-monitor'
 const imageUri = `${env.REGISTRY}/${env.FRONTEND_IMAGE_NAME}:sha-${env.COMMIT_SHA.substring(0, 7)}`
-const publicUrl = 'k8s-dash.resende.app'
+const publicUrl = 'https://k8s-dash.resende.app'
 
 
 export default [
