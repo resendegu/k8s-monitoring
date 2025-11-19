@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Config
+clusters:
+- name: "resende"
+  cluster:
+    server: "https://163.176.129.118:5443/k8s/clusters/c-skxt4"
+    certificate-authority-data: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJ2RENDQ\
+      VdPZ0F3SUJBZ0lCQURBS0JnZ3Foa2pPUFFRREFqQkdNUnd3R2dZRFZRUUtFeE5rZVc1aGJXbGoKY\
+      kdsemRHVnVaWEl0YjNKbk1TWXdKQVlEVlFRRERCMWtlVzVoYldsamJHbHpkR1Z1WlhJdFkyRkFNV\
+      GMyTWpnNApPRGd3TlRBZUZ3MHlOVEV4TVRFeE9USXdNRFZhRncwek5URXhNRGt4T1RJd01EVmFNR\
+      Vl4SERBYUJnTlZCQW9UCkUyUjVibUZ0YVdOc2FYTjBaVzVsY2kxdmNtY3hKakFrQmdOVkJBTU1IV\
+      1I1Ym1GdGFXTnNhWE4wWlc1bGNpMWoKWVVBeE56WXlPRGc0T0RBMU1Ga3dFd1lIS29aSXpqMENBU\
+      VlJS29aSXpqMERBUWNEUWdBRU1sQVlSM1QzMFFTTQpzMTNoMGZERVc2ZllIcjVnbWhyeXAxWXlvO\
+      TdiWDJCa01zT1BxdXdSUHJyeExibnhSN0k1TUdueTRQV0V4Q0ZCCnR4MnVuKzlybjZOQ01FQXdEZ\
+      1lEVlIwUEFRSC9CQVFEQWdLa01BOEdBMVVkRXdFQi93UUZNQU1CQWY4d0hRWUQKVlIwT0JCWUVGR\
+      mhhWVB2cG5MVFhycVo2TVhNZklhVnQwTGllTUFvR0NDcUdTTTQ5QkFNQ0EwY0FNRVFDSUZXdwo2U\
+      mZtZFMycWowZFdRdVZ1Qkw3eEFacUM3SS9SZW0reE9wSEFmZS9qQWlCQXBCRWFlZHUweEFHUnplW\
+      UtwRFNpCmE3M3NoWmZLbFhKU2ZHei8wSlR2YkE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t"
+
+users:
+- name: "resende"
+  user:
+    token: "kubeconfig-user-5s5cqw6flv:ltf7bfnc59ntc97hqr9ndpj9wxtqmmxbbvtpxxx7drmkx5scsf7g6q"
+
+
+contexts:
+- name: "resende"
+  context:
+    user: "resende"
+    cluster: "resende"
+
+current-context: "resende"
