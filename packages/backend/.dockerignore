@@ -1,0 +1,11 @@
+# Ignore build artifacts
+dist/
+node_modules/
+
+# Ignore env files (should be injected via K8s secrets)
+.env
+.env.local
+.env.production
+
+# Ignore source maps
+*.map

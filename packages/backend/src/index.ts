@@ -2,6 +2,7 @@ import express from 'express';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import * as k8s from '@kubernetes/client-node';
+import path from 'path';
 import {
   connectToCluster,
   checkMetricsServer,
@@ -13,11 +14,12 @@ import {
   executeCommand,
 } from './kubernetesService';
 import { createAIProviderService, AIProvider } from './aiProviderService';
+import config from './config';
 
 dotenv.config();
 
 if (!process.env.SESSION_SECRET) {
-  throw new Error('SESSION_SECRET is not set in the environment variables.');
+  console.warn('⚠️  SESSION_SECRET is not set. Using default (NOT SECURE FOR PRODUCTION)');
 }
 
 // Extend the Express session to include a kubeconfig property and AI provider config
@@ -31,7 +33,7 @@ declare module 'express-session' {
 }
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = config.port;
 
 app.use(express.json());
 
@@ -41,11 +43,32 @@ app.use((req, res, next) => {
   next();
 });
 
+// CORS configuration for production
+if (config.isProduction() && config.allowedOrigins.length > 0) {
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && config.allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+}
+
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: config.sessionSecret,
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false } // In production, set to true if using HTTPS
+  cookie: { 
+    secure: config.isProduction(),
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 
 // Helper function to get KubeConfig from session
@@ -327,6 +350,29 @@ app.get('/api/ai/gemini/models', async (req, res) => {
   }
 });
 
+// Serve static files in production (built frontend)
+if (config.isProduction()) {
+  const frontendPath = path.join(__dirname, '../../frontend/dist');
+  
+  // Serve static assets
+  app.use(express.static(frontendPath));
+  
+  // SPA fallback - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    } else {
+      res.status(404).json({ error: 'API endpoint not found' });
+    }
+  });
+}
+
 app.listen(port, () => {
-  console.log(`Backend server listening on port ${port}`);
+  console.log(`🚀 Server running in ${config.nodeEnv} mode`);
+  console.log(`📡 Listening on port ${port}`);
+  if (config.isProduction()) {
+    console.log(`🌐 Serving frontend from built files`);
+  } else {
+    console.log(`🔧 Development mode - Frontend proxy expected on port 5173`);
+  }
 });

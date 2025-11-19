@@ -20,5 +20,8 @@
     "ai"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@cubos/kube-templates": "^1.0.1024145"
+  }
 }

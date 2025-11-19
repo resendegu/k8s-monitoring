@@ -1,0 +1,16 @@
+# Ignore dependencies
+node_modules/
+
+# Ignore build artifacts (will be created during build)
+dist/
+
+# Ignore env files
+.env
+.env.local
+.env.development
+.env.production
+
+# Ignore development files
+.vscode/
+.idea/
+*.log

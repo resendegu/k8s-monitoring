@@ -73,3 +73,33 @@ The project is a monorepo with the following structure:
 -   **Framework:** [Express.js](https://expressjs.com/)
 -   **Kubernetes Client:** [`@kubernetes/client-node`](https://github.com/kubernetes-client/javascript)
 -   **AI Providers:** [OpenAI](https://openai.com/), [Anthropic](https://www.anthropic.com/), [Google Gemini](https://ai.google/discover/gemini/)
+
+## 🐳 Docker & Kubernetes Deployment
+
+Para informações sobre build de imagens Docker e deploy em Kubernetes, consulte:
+- **[DOCKER.md](./DOCKER.md)** - Guia completo de build e configuração de imagens
+- **Dockerfiles separados:**
+  - Backend: `packages/backend/Dockerfile`
+  - Frontend: `packages/frontend/Dockerfile`
+
+### Quick Start com Docker
+
+```bash
+# Build das imagens
+./scripts/build-images.sh
+
+# Ou usar docker-compose
+docker-compose up -d
+```
+
+### Variáveis de Ambiente
+
+**Backend (packages/backend):**
+- `SESSION_SECRET` - **Obrigatório** - Chave secreta para sessões
+- `NODE_ENV` - Ambiente (development/production)
+- `PORT` - Porta do servidor (padrão: 3001)
+
+**Frontend (packages/frontend):**
+- `VITE_API_URL` - URL da API backend (vazio = mesmo domínio)
+
+Consulte `.env.example` para mais detalhes.

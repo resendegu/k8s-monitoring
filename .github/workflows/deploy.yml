@@ -1,0 +1,128 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}-frontend
+  BRANCH_NAME: ${{ github.ref_name }}
+  COMMIT_SHA: ${{ github.sha }}
+
+jobs:
+  build:
+    name: Build and push docker image
+    runs-on: ubuntu-latest
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata for Backend Docker image
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Extract metadata for Frontend Docker image
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Backend image
+        id: push-backend
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/arm64
+          context: ./packages/backend
+          file: ./packages/backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push Frontend image
+        id: push-frontend
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/arm64
+          context: ./packages/frontend
+          file: ./packages/frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    name: Deploy Kubernetes
+    runs-on: ubuntu-latest
+    env:
+      RESENDE_K8S_SERVER_NAME: "resende"
+      RESENDE_K8S_TOKEN: ${{ secrets.RESENDE_K8S_TOKEN }}
+      RESENDE_K8S_SERVER_URL: ${{ secrets.RESENDE_K8S_SERVER_URL }}
+      RESENDE_K8S_SERVER_CA: ${{ secrets.RESENDE_K8S_SERVER_CA }}
+      BACKEND_IMAGE: ${{ needs.build.outputs.backend-image }}
+      FRONTEND_IMAGE: ${{ needs.build.outputs.frontend-image }}
+    container:
+      image: cubos/cli
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set cluster
+        run: |
+          cluster_from_env RESENDE
+      
+      - name: Print image tags
+        run: |
+          echo "Backend Image: $BACKEND_IMAGE"
+          echo "Frontend Image: $FRONTEND_IMAGE"
+
+      - name: Deploy
+        run: |
+          deploy
