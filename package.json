@@ -1,0 +1,24 @@
+{
+  "name": "k8s-ai-dashboard",
+  "version": "1.0.0",
+  "description": "A web application for real-time Kubernetes cluster insights and AI-powered analysis.",
+  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "packages/frontend",
+    "packages/backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/frontend & npm run dev --workspace=packages/backend",
+    "build": "npm run build --workspace=packages/frontend && npm run build --workspace=packages/backend",
+    "start": "npm run start --workspace=packages/backend"
+  },
+  "keywords": [
+    "kubernetes",
+    "react",
+    "nodejs",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC"
+}
