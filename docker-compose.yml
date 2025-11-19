@@ -3,8 +3,8 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ./packages/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: packages/backend/Dockerfile
     image: k8s-monitoring-backend:latest
     container_name: k8s-monitoring-backend
     ports:
@@ -23,8 +23,8 @@ services:
 
   frontend:
     build:
-      context: ./packages/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: packages/frontend/Dockerfile
       args:
         - VITE_API_URL=
     image: k8s-monitoring-frontend:latest

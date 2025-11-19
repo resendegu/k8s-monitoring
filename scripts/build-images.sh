@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Build script para criar as imagens Docker
+# Este script deve ser executado da raiz do projeto (monorepo)
 
 set -e
 
@@ -16,14 +17,20 @@ VERSION=${VERSION:-"latest"}
 BACKEND_IMAGE="${REGISTRY}k8s-monitoring-backend:${VERSION}"
 FRONTEND_IMAGE="${REGISTRY}k8s-monitoring-frontend:${VERSION}"
 
-echo -e "${GREEN}🐳 Building Docker images...${NC}"
+echo -e "${GREEN}🐳 Building Docker images from monorepo root...${NC}"
 echo ""
+
+# Ensure we're in the root directory
+if [ ! -f "package.json" ] || [ ! -d "packages/backend" ] || [ ! -d "packages/frontend" ]; then
+  echo -e "${RED}❌ Error: This script must be run from the project root directory${NC}"
+  exit 1
+fi
 
 # Build Backend
 echo -e "${YELLOW}📦 Building Backend image...${NC}"
 docker build -t "${BACKEND_IMAGE}" \
   -f packages/backend/Dockerfile \
-  packages/backend/
+  .
 
 if [ $? -eq 0 ]; then
   echo -e "${GREEN}✅ Backend image built successfully: ${BACKEND_IMAGE}${NC}"
@@ -39,7 +46,7 @@ echo -e "${YELLOW}📦 Building Frontend image...${NC}"
 docker build -t "${FRONTEND_IMAGE}" \
   --build-arg VITE_API_URL="${VITE_API_URL:-}" \
   -f packages/frontend/Dockerfile \
-  packages/frontend/
+  .
 
 if [ $? -eq 0 ]; then
   echo -e "${GREEN}✅ Frontend image built successfully: ${FRONTEND_IMAGE}${NC}"
@@ -58,3 +65,4 @@ echo ""
 echo "To push to registry:"
 echo "  docker push ${BACKEND_IMAGE}"
 echo "  docker push ${FRONTEND_IMAGE}"
+

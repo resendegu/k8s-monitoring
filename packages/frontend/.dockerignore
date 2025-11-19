@@ -1,16 +1,32 @@
-# Ignore dependencies
-node_modules/
+# Frontend .dockerignore (when building from root context)
 
-# Ignore build artifacts (will be created during build)
-dist/
+# Build artifacts  
+packages/frontend/dist/
+packages/frontend/node_modules/
 
-# Ignore env files
-.env
-.env.local
-.env.development
-.env.production
+# Backend files (not needed for frontend build)
+packages/backend/
 
-# Ignore development files
+# Development files
+.git/
+.github/
 .vscode/
 .idea/
 *.log
+
+# Environment files
+.env
+.env.local
+.env.development
+
+# Documentation
+*.md
+!packages/frontend/*.md
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/__tests__/
+

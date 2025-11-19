@@ -1,11 +1,28 @@
-# Ignore build artifacts
-dist/
-node_modules/
+# Backend .dockerignore (when building from root context)
 
-# Ignore env files (should be injected via K8s secrets)
+# Build artifacts
+packages/backend/dist/
+packages/backend/node_modules/
+
+# Frontend files (not needed for backend build)
+packages/frontend/
+
+# Development files
+.git/
+.github/
+.vscode/
+.idea/
+*.log
 .env
 .env.local
-.env.production
+.env.development
 
-# Ignore source maps
-*.map
+# Documentation
+*.md
+!packages/backend/*.md
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/
+

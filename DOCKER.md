@@ -2,9 +2,19 @@
 
 Scripts para facilitar o build e deploy das imagens Docker.
 
+## 🏗️ Arquitetura Monorepo
+
+Este projeto usa **npm workspaces** com `package-lock.json` na raiz. Os Dockerfiles são otimizados para:
+- ✅ Instalar dependências usando o package-lock.json da raiz
+- ✅ Aproveitar cache de layers do Docker
+- ✅ Builds separados para Backend e Frontend
+- ✅ Apenas copiar o necessário para cada imagem
+
 ## Build das Imagens
 
 ### Opção 1: Script automatizado
+
+**⚠️ IMPORTANTE: Execute da raiz do projeto**
 
 ```bash
 # Build com registry padrão (local)
@@ -19,22 +29,30 @@ VITE_API_URL=https://api.myapp.com ./scripts/build-images.sh
 
 ### Opção 2: Build manual
 
+**⚠️ Execute da raiz do projeto, não dentro de packages/**
+
 **Backend:**
 ```bash
-cd packages/backend
-docker build -t k8s-monitoring-backend:latest .
+# Da raiz do projeto
+docker build -f packages/backend/Dockerfile -t k8s-monitoring-backend:latest .
 ```
 
 **Frontend:**
 ```bash
-cd packages/frontend
-
-# Para produção (API no mesmo domínio)
-docker build -t k8s-monitoring-frontend:latest .
+# Da raiz do projeto
+docker build -f packages/frontend/Dockerfile -t k8s-monitoring-frontend:latest .
 
 # Para apontar para API externa
-docker build --build-arg VITE_API_URL=https://api.myapp.com \
+docker build -f packages/frontend/Dockerfile \
+  --build-arg VITE_API_URL=https://api.myapp.com \
   -t k8s-monitoring-frontend:latest .
+```
+
+### Opção 3: Docker Compose
+
+```bash
+# Da raiz do projeto
+docker-compose up -d
 ```
 
 ## Variáveis de Ambiente
