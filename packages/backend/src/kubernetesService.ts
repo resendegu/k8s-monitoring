@@ -21,8 +21,8 @@ export async function connectToCluster(kubeconfig: string): Promise<k8s.CoreV1Ap
   return coreV1Api;
 }
 
-export async function checkMetricsServer(k8sApi: k8s.CoreV1Api): Promise<boolean> {
-  const appsV1Api = k8sApi.kubeConfig.makeApiClient(k8s.AppsV1Api);
+export async function checkMetricsServer(kc: k8s.KubeConfig): Promise<boolean> {
+  const appsV1Api = kc.makeApiClient(k8s.AppsV1Api);
   try {
     const res = await appsV1Api.readNamespacedDeployment('metrics-server', 'kube-system');
     return res.body.status?.readyReplicas !== undefined && res.body.status.readyReplicas > 0;
@@ -118,8 +118,40 @@ export async function getNamespaces(kc: k8s.KubeConfig) {
     const nsPods = pods.body.items.filter(p => p.metadata?.namespace === nsName);
     const nsPodMetrics = podMetrics.items.filter(m => m.metadata.namespace === nsName);
 
-    const cpu = nsPodMetrics.reduce((acc, m) => acc + k8s.cpus(m.containers[0].usage.cpu), 0);
-    const memory = nsPodMetrics.reduce((acc, m) => acc + k8s.mem(m.containers[0].usage.memory), 0);
+    // Parse CPU and memory from strings like "100m" and "256Mi"
+    const parseCpu = (cpuStr: string) => {
+      if (cpuStr.endsWith('m')) {
+        return parseFloat(cpuStr.slice(0, -1));
+      }
+      return parseFloat(cpuStr) * 1000;
+    };
+
+    const parseMem = (memStr: string) => {
+      if (memStr.endsWith('Ki')) {
+        return parseFloat(memStr.slice(0, -2)) * 1024;
+      }
+      if (memStr.endsWith('Mi')) {
+        return parseFloat(memStr.slice(0, -2)) * 1024 * 1024;
+      }
+      if (memStr.endsWith('Gi')) {
+        return parseFloat(memStr.slice(0, -2)) * 1024 * 1024 * 1024;
+      }
+      return parseFloat(memStr);
+    };
+
+    const cpu = nsPodMetrics.reduce((acc, m) => {
+      if (m.containers[0]?.usage?.cpu) {
+        return acc + parseCpu(m.containers[0].usage.cpu);
+      }
+      return acc;
+    }, 0);
+
+    const memory = nsPodMetrics.reduce((acc, m) => {
+      if (m.containers[0]?.usage?.memory) {
+        return acc + parseMem(m.containers[0].usage.memory);
+      }
+      return acc;
+    }, 0);
 
     return {
       name: nsName,
@@ -155,7 +187,11 @@ export async function analyzeCluster(kc: k8s.KubeConfig, apiKey: string, provide
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });
-    return msg.content[0].text;
+    const firstBlock = msg.content[0];
+    if (firstBlock && 'text' in firstBlock) {
+      return firstBlock.text;
+    }
+    return 'No response from Anthropic.';
   } else if (provider === 'Gemini') {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-pro"});
