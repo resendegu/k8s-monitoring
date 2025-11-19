@@ -1,6 +1,7 @@
 import { Card, CardContent } from './ui';
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
+import MarkdownRenderer from './MarkdownRenderer';
 
 type Message = {
   id: number;
@@ -131,7 +132,11 @@ export default function AIAssistant() {
                       : 'bg-gray-800/50 text-gray-100 border border-gray-700/50'
                   }`}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                  {message.role === 'assistant' ? (
+                    <MarkdownRenderer content={message.content} className="text-sm" />
+                  ) : (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                  )}
                   <span className="text-xs opacity-60 mt-1 block">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>

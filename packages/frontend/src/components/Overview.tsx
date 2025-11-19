@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import axios from 'axios';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface OverviewData {
   nodes: { 
@@ -349,10 +350,8 @@ Please analyze these metrics and provide:
                   <p className="text-gray-400">Analyzing cluster metrics...</p>
                 </div>
               ) : (
-                <div className="prose prose-invert max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">
-                    {aiInsights}
-                  </div>
+                <div className="max-w-none">
+                  <MarkdownRenderer content={aiInsights} />
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, Button, Input } from './ui';
 import { Sparkles, Check, AlertTriangle, Loader } from 'lucide-react';
 import axios from 'axios';
@@ -17,6 +17,14 @@ interface ProviderOption {
   description: string;
   models: string[];
   defaultModel: string;
+}
+
+interface GeminiModel {
+  name: string;
+  displayName: string;
+  description: string;
+  inputTokenLimit: number;
+  outputTokenLimit: number;
 }
 
 const providerOptions: ProviderOption[] = [
@@ -51,15 +59,11 @@ export default function AIProviderDialog({ open, onClose, onConfigured }: AIProv
   const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [geminiModels, setGeminiModels] = useState<GeminiModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelsFetched, setModelsFetched] = useState(false);
 
-  // Load current configuration when dialog opens
-  useEffect(() => {
-    if (open) {
-      loadCurrentConfig();
-    }
-  }, [open]);
-
-  const loadCurrentConfig = async () => {
+  const loadCurrentConfig = useCallback(async () => {
     try {
       const { data } = await axios.get('/api/ai/config');
       if (data.configured) {
@@ -80,14 +84,75 @@ export default function AIProviderDialog({ open, onClose, onConfigured }: AIProv
     } catch (error) {
       console.error('Failed to load AI config:', error);
     }
-  };
+  }, [selectedProvider]);
+
+  // Load current configuration when dialog opens
+  useEffect(() => {
+    if (open) {
+      loadCurrentConfig();
+    }
+  }, [open, loadCurrentConfig]);
 
   const handleProviderChange = (provider: AIProvider) => {
     setSelectedProvider(provider);
     setTestResult(null);
     const providerOption = providerOptions.find(p => p.id === provider);
     setSelectedModel(providerOption?.defaultModel || '');
+    
+    // Reset Gemini models when changing provider
+    if (provider !== 'gemini') {
+      setModelsFetched(false);
+      setGeminiModels([]);
+    }
   };
+
+  // Fetch Gemini models when API key is entered
+  const fetchGeminiModels = useCallback(async (key: string) => {
+    if (selectedProvider !== 'gemini' || !key || modelsFetched) {
+      return;
+    }
+
+    setIsLoadingModels(true);
+    setTestResult(null);
+
+    try {
+      const { data } = await axios.get(`/api/ai/gemini/models?apiKey=${encodeURIComponent(key)}`);
+      
+      if (data.models && data.models.length > 0) {
+        setGeminiModels(data.models);
+        setModelsFetched(true);
+        
+        // Set the first model as default if no model is selected
+        if (!selectedModel || selectedModel === 'gemini-pro') {
+          setSelectedModel(data.models[0].name);
+        }
+        
+        setTestResult({ 
+          success: true, 
+          message: `Found ${data.models.length} available Gemini models` 
+        });
+      }
+    } catch (error: unknown) {
+      console.error('Failed to fetch Gemini models:', error);
+      setTestResult({ 
+        success: false, 
+        message: 'Failed to fetch available models. Please check your API key.' 
+      });
+    } finally {
+      setIsLoadingModels(false);
+    }
+  }, [selectedProvider, modelsFetched, selectedModel]);
+
+  // Fetch models when API key changes for Gemini
+  useEffect(() => {
+    if (selectedProvider === 'gemini' && apiKey && apiKey.length > 20 && !modelsFetched) {
+      const timeoutId = setTimeout(() => {
+        fetchGeminiModels(apiKey);
+      }, 500); // Debounce
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [apiKey, selectedProvider, modelsFetched, fetchGeminiModels]);
 
   const handleTest = async () => {
     if (!apiKey) {
@@ -106,10 +171,11 @@ export default function AIProviderDialog({ open, onClose, onConfigured }: AIProv
       });
 
       setTestResult({ success: true, message: data.message || 'Connection successful!' });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { details?: string } }; message?: string };
       setTestResult({ 
         success: false, 
-        message: error.response?.data?.details || error.message || 'Connection failed'
+        message: axiosError.response?.data?.details || axiosError.message || 'Connection failed'
       });
     } finally {
       setIsTesting(false);
@@ -142,10 +208,11 @@ export default function AIProviderDialog({ open, onClose, onConfigured }: AIProv
       setTimeout(() => {
         onClose();
       }, 1000);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { error?: string } }; message?: string };
       setTestResult({ 
         success: false, 
-        message: error.response?.data?.error || error.message || 'Failed to save configuration'
+        message: axiosError.response?.data?.error || axiosError.message || 'Failed to save configuration'
       });
     } finally {
       setIsSaving(false);
@@ -158,10 +225,11 @@ export default function AIProviderDialog({ open, onClose, onConfigured }: AIProv
       setIsConfigured(false);
       setApiKey('');
       setTestResult({ success: true, message: 'Configuration cleared successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { error?: string } }; message?: string };
       setTestResult({ 
         success: false, 
-        message: error.response?.data?.error || error.message || 'Failed to clear configuration'
+        message: axiosError.response?.data?.error || axiosError.message || 'Failed to clear configuration'
       });
     }
   };
@@ -218,13 +286,32 @@ export default function AIProviderDialog({ open, onClose, onConfigured }: AIProv
             <label className="block text-sm font-medium text-gray-300 mb-2">
               API Key
             </label>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={`Enter your ${currentProvider?.name} API key`}
-              className="w-full"
-            />
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={`Enter your ${currentProvider?.name} API key`}
+                className="flex-1"
+              />
+              {selectedProvider === 'gemini' && apiKey && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setModelsFetched(false);
+                    fetchGeminiModels(apiKey);
+                  }}
+                  disabled={isLoadingModels}
+                  className="px-4"
+                >
+                  {isLoadingModels ? (
+                    <Loader size={16} className="animate-spin" />
+                  ) : (
+                    'Fetch Models'
+                  )}
+                </Button>
+              )}
+            </div>
             <p className="text-xs text-gray-500 mt-1">
               Your API key is stored securely in your session and never saved permanently.
             </p>
@@ -233,21 +320,38 @@ export default function AIProviderDialog({ open, onClose, onConfigured }: AIProv
           {/* Model Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Model (Optional)
+              Model {isLoadingModels && <span className="text-xs text-gray-500">(Loading models...)</span>}
             </label>
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 focus:outline-none focus:border-blue-500"
+              disabled={isLoadingModels}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {currentProvider?.models.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))}
+              {selectedProvider === 'gemini' && geminiModels.length > 0 ? (
+                geminiModels.map((model) => (
+                  <option key={model.name} value={model.name}>
+                    {model.displayName} ({model.name})
+                  </option>
+                ))
+              ) : (
+                currentProvider?.models.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))
+              )}
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              Default: {currentProvider?.defaultModel}
+              {selectedProvider === 'gemini' && geminiModels.length > 0 
+                ? `${geminiModels.length} models available for your API key`
+                : `Default: ${currentProvider?.defaultModel}`
+              }
+              {selectedProvider === 'gemini' && !modelsFetched && apiKey && (
+                <span className="block mt-1 text-blue-400">
+                  💡 Models will be fetched automatically when you enter a valid API key
+                </span>
+              )}
             </p>
           </div>
 

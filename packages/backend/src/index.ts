@@ -283,6 +283,50 @@ app.post('/api/execute-command', checkSession, async (req, res) => {
   }
 });
 
+// Fetch available Gemini models
+app.get('/api/ai/gemini/models', async (req, res) => {
+  const { apiKey } = req.query;
+  
+  if (!apiKey || typeof apiKey !== 'string') {
+    return res.status(400).json({ error: 'API key is required as a query parameter' });
+  }
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch models: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    // Filter and format models to only include generative models
+    const models = data.models
+      ?.filter((model: any) => 
+        model.supportedGenerationMethods?.includes('generateContent') &&
+        model.name.includes('gemini')
+      )
+      .map((model: any) => ({
+        name: model.name.replace('models/', ''),
+        displayName: model.displayName,
+        description: model.description,
+        inputTokenLimit: model.inputTokenLimit,
+        outputTokenLimit: model.outputTokenLimit,
+      })) || [];
+
+    res.json({ models });
+  } catch (error: any) {
+    console.error('Error fetching Gemini models:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch Gemini models', 
+      details: error.message 
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend server listening on port ${port}`);
 });
