@@ -27,3 +27,4 @@ yarn-error.log*
 # Environment variables
 .env
 packages/backend/.env
+resende.yaml

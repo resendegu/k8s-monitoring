@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import axios from 'axios';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface OverviewData {
   nodes: { 
@@ -168,8 +169,7 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
     
     try {
       // Use the current display data to create a context for AI
-      // This will be used when connecting to real AI APIs
-      /* const metricsContext = `
+      const metricsContext = `
 Current Cluster Metrics:
 - Nodes: ${displayData.nodes.ready}/${displayData.nodes.total} ready
 - Pods: ${displayData.pods.running}/${displayData.pods.total} running (${displayData.pods.pending} pending, ${displayData.pods.failed} failed)
@@ -185,26 +185,42 @@ Please analyze these metrics and provide:
 2. Potential issues or concerns
 3. Resource optimization recommendations
 4. Capacity planning suggestions
-      `.trim(); */
+      `.trim();
+
+      // Try to use the real AI API if connected and configured
+      if (isConnected) {
+        try {
+          const response = await axios.post('/api/ai/analyze', {
+            question: metricsContext
+          });
+          setAiInsights(response.data.analysis);
+          setAiAnalyzing(false);
+          return;
+        } catch (error: any) {
+          console.error('AI Analysis error:', error);
+          // Fall back to mock insights if AI is not configured
+          if (error.response?.status === 400 && error.response?.data?.error?.includes('not configured')) {
+            // Generate mock insights as fallback
+            setTimeout(() => {
+              const mockInsights = generateMockAIInsights(displayData, cpuUsagePercent, memUsagePercent, storagePercent);
+              setAiInsights(mockInsights + '\n\n⚠️ **Note:** This is a simulated analysis. Configure an AI provider in the settings for real AI-powered insights.');
+              setAiAnalyzing(false);
+            }, 2000);
+            return;
+          }
+          throw error;
+        }
+      }
       
-      // For now, generate mock insights since we need API keys for real AI
+      // For demo mode, generate mock insights
       setTimeout(() => {
         const mockInsights = generateMockAIInsights(displayData, cpuUsagePercent, memUsagePercent, storagePercent);
-        setAiInsights(mockInsights);
+        setAiInsights(mockInsights + '\n\n⚠️ **Note:** This is a simulated analysis in demo mode. Connect to a cluster and configure an AI provider for real insights.');
         setAiAnalyzing(false);
       }, 2000);
-      
-      // TODO: Uncomment this when you have AI API keys configured
-      // const response = await axios.post('/api/ai/analyze', {
-      //   apiKey: 'YOUR_API_KEY',
-      //   provider: 'gemini', // or 'openai'
-      //   question: metricsContext
-      // });
-      // setAiInsights(response.data.analysis);
-      // setAiAnalyzing(false);
     } catch (error) {
       console.error('AI Analysis error:', error);
-      setAiInsights('Failed to analyze metrics. Please try again later.');
+      setAiInsights('Failed to analyze metrics. Please try again later or check your AI provider configuration.');
       setAiAnalyzing(false);
     }
   };
@@ -334,10 +350,8 @@ Please analyze these metrics and provide:
                   <p className="text-gray-400">Analyzing cluster metrics...</p>
                 </div>
               ) : (
-                <div className="prose prose-invert max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">
-                    {aiInsights}
-                  </div>
+                <div className="max-w-none">
+                  <MarkdownRenderer content={aiInsights} />
                 </div>
               )}
             </div>

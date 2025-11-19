@@ -42,6 +42,6 @@ export function DialogContent({ className = '', children }: { className?: string
   );
 }
 
-export function DialogTitle({ children }: { children: ReactNode }) {
-  return <h2 className="text-2xl font-bold text-gray-100 mb-4">{children}</h2>;
+export function DialogTitle({ className = '', children }: { className?: string; children: ReactNode }) {
+  return <h2 className={`text-2xl font-bold text-gray-100 mb-4 ${className}`}>{children}</h2>;
 }

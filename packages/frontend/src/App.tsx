@@ -6,7 +6,8 @@ import {
   FolderTree, 
   Sparkles, 
   Menu,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import { Button } from './components/ui';
 import Overview from './components/Overview';
@@ -16,6 +17,7 @@ import Namespaces from './components/Namespaces';
 import AIAssistant from './components/AIAssistant';
 import ConnectDialog from './components/ConnectDialog';
 import MetricsServerDialog from './components/MetricsServerDialog';
+import AIProviderDialog from './components/AIProviderDialog';
 import axios from 'axios';
 
 type View = 'Overview' | 'Nodes' | 'Workloads' | 'Namespaces' | 'AI Assistant';
@@ -104,7 +106,9 @@ function App() {
   const [activeView, setActiveView] = useState<View>('Overview');
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+  const [aiProviderDialogOpen, setAiProviderDialogOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -119,7 +123,19 @@ function App() {
       }
     };
     checkStatus();
+    
+    // Check AI configuration status
+    checkAIConfig();
   }, []);
+
+  const checkAIConfig = async () => {
+    try {
+      const { data } = await axios.get('/api/ai/config');
+      setAiConfigured(data.configured);
+    } catch (error) {
+      console.error('Failed to check AI config:', error);
+    }
+  };
 
   const handleConnect = (metricsAvailable: boolean) => {
     setIsConnected(true);
@@ -171,6 +187,17 @@ function App() {
           
           <div className="flex items-center gap-3">
             <Button 
+              variant="secondary"
+              onClick={() => setAiProviderDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Settings size={16} />
+              <span className="hidden sm:inline">
+                AI: {aiConfigured ? '🟢 Configured' : '🔴 Not Set'}
+              </span>
+              <span className="sm:hidden">AI</span>
+            </Button>
+            <Button 
               variant={isConnected ? 'secondary' : 'primary'}
               onClick={() => setConnectDialogOpen(true)}
             >
@@ -193,6 +220,11 @@ function App() {
       <MetricsServerDialog
         open={metricsDialogOpen}
         onClose={() => setMetricsDialogOpen(false)}
+      />
+      <AIProviderDialog
+        open={aiProviderDialogOpen}
+        onClose={() => setAiProviderDialogOpen(false)}
+        onConfigured={checkAIConfig}
       />
     </div>
   );
