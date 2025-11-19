@@ -61,7 +61,7 @@ export default function Workloads({ isConnected }: { isConnected: boolean }) {
     initialData: isConnected ? undefined : mockData,
   });
 
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTab(newValue);
   };
 
