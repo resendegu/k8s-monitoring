@@ -65,9 +65,15 @@ function Sidebar({
       `}>
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg animate-gradient shadow-lg shadow-blue-500/50" />
-            <span className="font-bold text-lg text-gray-100">K8s Monitor</span>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/k8s-icon.svg" 
+              alt="K8s AI Dash" 
+              className="w-8 h-8 ai-brain drop-shadow-lg"
+            />
+            <span className="font-bold text-lg text-gray-100 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              K8s AI Dash
+            </span>
           </div>
           <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-gray-100 transition-colors">
             <X size={20} />
@@ -86,17 +92,21 @@ function Sidebar({
               style={{ animationDelay: `${index * 50}ms` }}
               className={`
                 w-full flex items-center gap-3 px-4 py-3 rounded-lg
-                transition-all duration-200 text-left group slide-in-left
+                transition-all duration-300 text-left group stagger-item
+                premium-hover relative overflow-hidden
                 ${activeView === item.text 
-                  ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-400 border border-blue-500/30 shadow-lg shadow-blue-500/20' 
+                  ? 'glass-card bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-400 border border-blue-500/30 shadow-lg shadow-blue-500/20' 
                   : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800/50 hover:border-gray-700/50 border border-transparent'
                 }
               `}
             >
-              <span className={activeView === item.text ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'}>
+              <span className={activeView === item.text ? 'ai-thinking' : 'group-hover:scale-110 transition-transform duration-300'}>
                 {item.icon}
               </span>
               <span className="font-medium">{item.text}</span>
+              {activeView === item.text && (
+                <span className="ml-auto w-2 h-2 rounded-full bg-blue-400 status-pulse"></span>
+              )}
             </button>
           ))}
         </nav>
@@ -125,9 +135,17 @@ function App() {
         console.error('Failed to check connection status:', error);
       }
     };
-    checkStatus();
     
-    // Check AI configuration status
+    const checkAIConfig = async () => {
+      try {
+        const { data } = await axios.get('/api/ai/config');
+        setAiConfigured(data.configured);
+      } catch (error) {
+        console.error('Failed to check AI config:', error);
+      }
+    };
+    
+    checkStatus();
     checkAIConfig();
   }, []);
 
