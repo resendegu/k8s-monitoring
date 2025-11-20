@@ -7,7 +7,8 @@ import {
   Sparkles, 
   Menu,
   X,
-  Settings
+  Settings,
+  Terminal as TerminalIcon
 } from 'lucide-react';
 import { Button } from './components/ui';
 import Overview from './components/Overview';
@@ -18,6 +19,7 @@ import AIAssistant from './components/AIAssistant';
 import ConnectDialog from './components/ConnectDialog';
 import MetricsServerDialog from './components/MetricsServerDialog';
 import AIProviderDialog from './components/AIProviderDialog';
+import Terminal from './components/Terminal';
 import axios from 'axios';
 
 type View = 'Overview' | 'Nodes' | 'Workloads' | 'Namespaces' | 'AI Assistant';
@@ -120,6 +122,8 @@ function App() {
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
   const [aiProviderDialogOpen, setAiProviderDialogOpen] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [terminalCommand, setTerminalCommand] = useState<string | undefined>(undefined);
   const [isConnected, setIsConnected] = useState(false);
   const [aiConfigured, setAiConfigured] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -165,6 +169,16 @@ function App() {
     }
   };
 
+  const handleCommandSuggested = (command: string) => {
+    setTerminalCommand(command);
+    setTerminalOpen(true);
+  };
+
+  const handleTerminalClose = () => {
+    setTerminalOpen(false);
+    setTerminalCommand(undefined);
+  };
+
   const renderContent = () => {
     const content = (() => {
       switch (activeView) {
@@ -177,7 +191,7 @@ function App() {
         case 'Namespaces':
           return <Namespaces isConnected={isConnected} />;
         case 'AI Assistant':
-          return <AIAssistant />;
+          return <AIAssistant onCommandSuggested={handleCommandSuggested} />;
         default:
           return <div className="text-gray-400">Select a view from the sidebar.</div>;
       }
@@ -224,6 +238,15 @@ function App() {
           <div className="flex items-center gap-3">
             <Button 
               variant="secondary"
+              onClick={() => setTerminalOpen(true)}
+              className="flex items-center gap-2 hover:scale-105 transition-transform"
+              disabled={!isConnected}
+            >
+              <TerminalIcon size={16} />
+              <span className="hidden sm:inline">Terminal</span>
+            </Button>
+            <Button 
+              variant="secondary"
               onClick={() => setAiProviderDialogOpen(true)}
               className="flex items-center gap-2 hover:scale-105 transition-transform"
             >
@@ -262,6 +285,11 @@ function App() {
         open={aiProviderDialogOpen}
         onClose={() => setAiProviderDialogOpen(false)}
         onConfigured={checkAIConfig}
+      />
+      <Terminal
+        isOpen={terminalOpen}
+        onClose={handleTerminalClose}
+        initialCommand={terminalCommand}
       />
     </div>
   );

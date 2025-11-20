@@ -100,7 +100,19 @@ export class AIProviderService {
   async analyzeClusterData(clusterData: any, question?: string): Promise<string> {
     const systemMessage: AIMessage = {
       role: 'system',
-      content: `You are a Kubernetes expert assistant. Analyze the provided cluster data and provide insightful recommendations about cluster health, resource utilization, and best practices. Be specific and actionable.`,
+      content: `You are a Kubernetes expert assistant. Analyze the provided cluster data and provide insightful recommendations about cluster health, resource utilization, and best practices. Be specific and actionable.
+      
+When suggesting kubectl commands, format them using this special syntax:
+\`\`\`kubectl
+kubectl <command>
+\`\`\`
+
+For example:
+\`\`\`kubectl
+kubectl get pods -n kube-system
+\`\`\`
+
+These commands will be executable by the user with their approval.`,
     };
 
     const userPrompt = question 

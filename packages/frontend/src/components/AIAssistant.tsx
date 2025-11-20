@@ -2,27 +2,36 @@ import { Card, CardContent } from './ui';
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
+import CommandApprovalDialog from './CommandApprovalDialog';
+import axios from 'axios';
 
 type Message = {
   id: number;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  suggestedCommands?: string[];
 };
 
 const initialMessages: Message[] = [
   {
     id: 1,
     role: 'assistant',
-    content: 'Hello! I am your Kubernetes AI Assistant. I can help you understand your cluster metrics, troubleshoot issues, and provide recommendations. How can I help you today?',
+    content: 'Hello! I am your Kubernetes AI Assistant. I can help you understand your cluster metrics, troubleshoot issues, and provide recommendations. I can also suggest kubectl commands for you to execute. How can I help you today?',
     timestamp: new Date(),
   },
 ];
 
-export default function AIAssistant() {
+interface AIAssistantProps {
+  onCommandSuggested?: (command: string) => void;
+}
+
+export default function AIAssistant({ onCommandSuggested }: AIAssistantProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -32,6 +41,19 @@ export default function AIAssistant() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Extract kubectl commands from markdown code blocks
+  const extractKubectlCommands = (content: string): string[] => {
+    const regex = /```kubectl\s+(kubectl[^\n]+)/g;
+    const commands: string[] = [];
+    let match;
+    
+    while ((match = regex.exec(content)) !== null) {
+      commands.push(match[1].trim());
+    }
+    
+    return commands;
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -48,11 +70,34 @@ export default function AIAssistant() {
     setIsTyping(true);
 
     try {
+      // Add system message to guide AI about kubectl commands
+      const systemMessage = {
+        role: 'system',
+        content: `You are a Kubernetes expert assistant. When suggesting kubectl commands, format them using this special syntax:
+\`\`\`kubectl
+kubectl <command>
+\`\`\`
+
+For example:
+\`\`\`kubectl
+kubectl get pods -n kube-system
+\`\`\`
+
+These commands will be executable by the user with their approval.`
+      };
+
       // Call the AI API with conversation history
-      const conversationMessages = [...messages, userMessage].map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
+      const conversationMessages = [
+        systemMessage,
+        ...messages.map(m => ({
+          role: m.role,
+          content: m.content,
+        })),
+        {
+          role: userMessage.role,
+          content: userMessage.content,
+        }
+      ];
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -70,11 +115,16 @@ export default function AIAssistant() {
       }
 
       const data = await response.json();
+      
+      // Extract kubectl commands from the response
+      const suggestedCommands = extractKubectlCommands(data.response);
+      
       const aiMessage: Message = {
         id: messages.length + 2,
         role: 'assistant',
         content: data.response,
         timestamp: new Date(),
+        suggestedCommands: suggestedCommands.length > 0 ? suggestedCommands : undefined,
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error: any) {
@@ -96,6 +146,61 @@ export default function AIAssistant() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleCommandClick = (command: string) => {
+    setPendingCommand(command);
+    setShowApprovalDialog(true);
+  };
+
+  const executeCommand = async (command: string) => {
+    // Add a user message showing the command being executed
+    const userMessage: Message = {
+      id: messages.length + 1,
+      role: 'user',
+      content: `Executing command: \`${command}\``,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    
+    try {
+      const { data } = await axios.post('/api/execute-command', { command });
+      
+      // Add AI message with the command output
+      const aiMessage: Message = {
+        id: messages.length + 2,
+        role: 'assistant',
+        content: `Command executed successfully! Here's the output:\n\n\`\`\`json\n${data.result}\n\`\`\``,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      
+      // Open terminal if callback is provided
+      if (onCommandSuggested) {
+        onCommandSuggested(command);
+      }
+    } catch (error: any) {
+      const errorMessage: Message = {
+        id: messages.length + 2,
+        role: 'assistant',
+        content: `Failed to execute command: ${error.response?.data?.details || error.message}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
+  const handleApproveCommand = () => {
+    if (pendingCommand) {
+      executeCommand(pendingCommand);
+    }
+    setShowApprovalDialog(false);
+    setPendingCommand(null);
+  };
+
+  const handleRejectCommand = () => {
+    setShowApprovalDialog(false);
+    setPendingCommand(null);
   };
 
   return (
@@ -128,21 +233,39 @@ export default function AIAssistant() {
                     <Bot size={18} className="text-white" />
                   </div>
                 )}
-                <div
-                  className={`max-w-[70%] rounded-2xl px-4 py-3 transition-all hover:scale-[1.02] ${
-                    message.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'bg-gray-800/50 text-gray-100 border border-gray-700/50 hover:border-gray-600/50'
-                  }`}
-                >
-                  {message.role === 'assistant' ? (
-                    <MarkdownRenderer content={message.content} className="text-sm" />
-                  ) : (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                <div className="flex flex-col gap-2 max-w-[70%]">
+                  <div
+                    className={`rounded-2xl px-4 py-3 transition-all hover:scale-[1.02] ${
+                      message.role === 'user'
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/30'
+                        : 'bg-gray-800/50 text-gray-100 border border-gray-700/50 hover:border-gray-600/50'
+                    }`}
+                  >
+                    {message.role === 'assistant' ? (
+                      <MarkdownRenderer content={message.content} className="text-sm" />
+                    ) : (
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    )}
+                    <span className="text-xs opacity-60 mt-1 block">
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  
+                  {/* Render command execution buttons */}
+                  {message.role === 'assistant' && message.suggestedCommands && message.suggestedCommands.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {message.suggestedCommands.map((cmd, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleCommandClick(cmd)}
+                          className="px-3 py-2 bg-green-500/20 border border-green-500/50 text-green-400 rounded-lg text-xs font-mono hover:bg-green-500/30 hover:border-green-500/70 transition-all flex items-center gap-2"
+                        >
+                          <span>▶</span>
+                          <span className="max-w-xs truncate">{cmd}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  <span className="text-xs opacity-60 mt-1 block">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
                 </div>
                 {message.role === 'user' && (
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center shadow-lg">
@@ -188,6 +311,16 @@ export default function AIAssistant() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Command Approval Dialog */}
+      {pendingCommand && (
+        <CommandApprovalDialog
+          open={showApprovalDialog}
+          command={pendingCommand}
+          onApprove={handleApproveCommand}
+          onReject={handleRejectCommand}
+        />
+      )}
     </div>
   );
 }
