@@ -100,36 +100,39 @@ export default function AIAssistant() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="mb-6">
+      <div className="mb-6 fade-in">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg">
+          <div className="p-2 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg animate-gradient shadow-lg shadow-blue-500/50">
             <Sparkles className="text-white" size={24} />
           </div>
           <div>
-            <h2 className="text-3xl font-bold text-gray-100">AI Assistant</h2>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              AI Assistant
+            </h2>
             <p className="text-gray-400">Get intelligent insights about your Kubernetes cluster</p>
           </div>
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      <Card className="flex-1 flex flex-col overflow-hidden scale-in group">
         <CardContent className="flex-1 flex flex-col p-6 overflow-hidden">
           <div className="flex-1 overflow-y-auto space-y-4 mb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800/50 pr-2">
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'} fade-in`}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 {message.role === 'assistant' && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-blue-500/50 animate-gradient">
                     <Bot size={18} className="text-white" />
                   </div>
                 )}
                 <div
-                  className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                  className={`max-w-[70%] rounded-2xl px-4 py-3 transition-all hover:scale-[1.02] ${
                     message.role === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-800/50 text-gray-100 border border-gray-700/50'
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'bg-gray-800/50 text-gray-100 border border-gray-700/50 hover:border-gray-600/50'
                   }`}
                 >
                   {message.role === 'assistant' ? (
@@ -142,22 +145,22 @@ export default function AIAssistant() {
                   </span>
                 </div>
                 {message.role === 'user' && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center shadow-lg">
                     <User size={18} className="text-gray-300" />
                   </div>
                 )}
               </div>
             ))}
             {isTyping && (
-              <div className="flex gap-3 justify-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+              <div className="flex gap-3 justify-start fade-in">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-blue-500/50 ai-thinking animate-gradient">
                   <Bot size={18} className="text-white" />
                 </div>
                 <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl px-4 py-3">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-gradient-to-r from-pink-500 to-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>
@@ -171,15 +174,15 @@ export default function AIAssistant() {
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask me anything about your cluster..."
-              className="flex-1 px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
+              className="flex-1 px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none transition-all hover:border-gray-600"
               rows={2}
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || isTyping}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:from-gray-700 disabled:to-gray-700 text-white rounded-lg font-medium transition-all disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:to-purple-600 disabled:from-gray-700 disabled:to-gray-700 text-white rounded-lg font-medium transition-all disabled:cursor-not-allowed flex items-center gap-2 hover:scale-105 disabled:hover:scale-100 shadow-lg hover:shadow-xl hover:shadow-purple-500/50 animate-gradient"
             >
-              <Send size={18} />
+              <Send size={18} className={isTyping ? '' : 'group-hover:translate-x-1 transition-transform'} />
               Send
             </button>
           </div>

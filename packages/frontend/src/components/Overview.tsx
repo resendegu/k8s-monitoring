@@ -311,11 +311,13 @@ Please analyze these metrics and provide:
   return (
     <div className="space-y-4">
       {/* Compact Header with AI Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between fade-in">
         <div>
           <div className="flex items-center gap-2">
-            <Activity size={18} className="text-blue-400" />
-            <h2 className="text-2xl font-bold text-gray-100">Dashboard</h2>
+            <Activity size={18} className="text-blue-400 animate-pulse" />
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Dashboard
+            </h2>
           </div>
           <p className="text-gray-400 text-sm mt-0.5">
             {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -325,9 +327,9 @@ Please analyze these metrics and provide:
         {/* AI Analysis Button */}
         <button
           onClick={analyzeMetrics}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl hover:shadow-purple-500/50 hover:scale-105 animate-gradient group"
         >
-          <Sparkles size={18} />
+          <Sparkles size={18} className="group-hover:rotate-12 transition-transform" />
           <span>AI Analysis</span>
         </button>
       </div>
@@ -335,16 +337,16 @@ Please analyze these metrics and provide:
       {/* AI Analysis Dialog */}
       {showAIDialog && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 fade-in"
           onClick={() => !aiAnalyzing && setShowAIDialog(false)}
         >
           <div 
-            className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto shadow-2xl"
+            className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto shadow-2xl scale-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-4 flex items-center justify-between">
+            <div className="sticky top-0 glass border-b border-gray-700 p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg">
+                <div className={`p-2 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg ${aiAnalyzing ? 'ai-thinking animate-gradient' : ''}`}>
                   <Sparkles className="text-white" size={20} />
                 </div>
                 <h3 className="text-xl font-bold text-gray-100">AI Cluster Analysis</h3>
@@ -352,7 +354,7 @@ Please analyze these metrics and provide:
               {!aiAnalyzing && (
                 <button
                   onClick={() => setShowAIDialog(false)}
-                  className="text-gray-400 hover:text-gray-100 transition-colors"
+                  className="text-gray-400 hover:text-gray-100 transition-colors hover:rotate-90 duration-300"
                 >
                   <X size={20} />
                 </button>
@@ -362,27 +364,30 @@ Please analyze these metrics and provide:
             <div className="p-6">
               {aiAnalyzing ? (
                 <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                  <p className="text-gray-400">Analyzing cluster metrics...</p>
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-20 blur-xl animate-pulse"></div>
+                  </div>
+                  <p className="text-gray-400 ai-thinking">Analyzing cluster metrics...</p>
                 </div>
               ) : (
-                <div className="max-w-none">
+                <div className="max-w-none fade-in">
                   <MarkdownRenderer content={aiInsights} />
                 </div>
               )}
             </div>
             
             {!aiAnalyzing && (
-              <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 p-4 flex justify-end gap-3">
+              <div className="sticky bottom-0 glass border-t border-gray-700 p-4 flex justify-end gap-3">
                 <button
                   onClick={() => setShowAIDialog(false)}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition-all"
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition-all hover:scale-105"
                 >
                   Close
                 </button>
                 <button
                   onClick={analyzeMetrics}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg transition-all"
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg transition-all hover:scale-105 animate-gradient"
                 >
                   <Sparkles size={16} />
                   Re-analyze
@@ -399,10 +404,10 @@ Please analyze these metrics and provide:
         <div className="xl:col-span-3 space-y-4">
           {/* Top Stats Row - Compact */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Card className="hover:border-blue-500/30 transition-all">
+            <Card className="hover:border-blue-500/30 transition-all group scale-in" style={{ animationDelay: '0ms' }}>
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <Server className="text-blue-400" size={18} />
+                  <Server className="text-blue-400 group-hover:scale-110 transition-transform" size={18} />
                   <span className="text-xs text-green-400 font-medium">
                     {displayData.nodes.ready}/{displayData.nodes.total}
                   </span>
@@ -411,13 +416,14 @@ Please analyze these metrics and provide:
                 <p className="text-xl font-bold text-gray-100">
                   {displayData.nodes.ready}
                 </p>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               </CardContent>
             </Card>
 
-            <Card className="hover:border-purple-500/30 transition-all">
+            <Card className="hover:border-purple-500/30 transition-all group scale-in" style={{ animationDelay: '50ms' }}>
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <BoxIcon className="text-purple-400" size={18} />
+                  <BoxIcon className="text-purple-400 group-hover:scale-110 transition-transform" size={18} />
                   <span className="text-xs text-green-400 font-medium">
                     {displayData.pods.running}/{displayData.pods.total}
                   </span>
@@ -426,42 +432,48 @@ Please analyze these metrics and provide:
                 <p className="text-xl font-bold text-gray-100">
                   {displayData.pods.running}
                 </p>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               </CardContent>
             </Card>
 
-            <Card className="hover:border-cyan-500/30 transition-all">
+            <Card className="hover:border-cyan-500/30 transition-all group scale-in" style={{ animationDelay: '100ms' }}>
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <Layers className="text-cyan-400" size={18} />
+                  <Layers className="text-cyan-400 group-hover:scale-110 transition-transform" size={18} />
                   <CheckCircle className="text-green-400" size={14} />
                 </div>
                 <p className="text-gray-400 text-xs">Namespaces</p>
                 <p className="text-xl font-bold text-gray-100">
                   {displayData.namespaces.total}
                 </p>
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               </CardContent>
             </Card>
 
-            <Card className="hover:border-green-500/30 transition-all">
+            <Card className="hover:border-green-500/30 transition-all group scale-in" style={{ animationDelay: '150ms' }}>
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <Activity className="text-green-400" size={18} />
+                  <Activity className="text-green-400 group-hover:scale-110 transition-transform" size={18} />
                   <span className="text-xs text-green-400 font-medium">100%</span>
                 </div>
                 <p className="text-gray-400 text-xs">Deployments</p>
                 <p className="text-xl font-bold text-gray-100">
                   {displayData.deployments?.available || 0}
                 </p>
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               </CardContent>
             </Card>
           </div>
 
           {/* Resource Usage Charts - Simplified */}
-          <Card>
+          <Card className="scale-in" style={{ animationDelay: '200ms' }}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <CardTitle className="text-base">Resource Utilization</CardTitle>
-                <span className="text-xs text-gray-500">Real-time</span>
+                <span className="text-xs text-gray-500 flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  Real-time
+                </span>
               </div>
               
               {/* CPU Usage - Simplified */}
@@ -474,11 +486,13 @@ Please analyze these metrics and provide:
                   <span className="text-sm text-gray-400">{cpuUsagePercent}%</span>
                 </div>
                 
-                <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden relative">
                   <div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all"
+                    className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 transition-all duration-700 ease-out relative animate-gradient"
                     style={{ width: `${cpuUsagePercent}%` }}
-                  />
+                  >
+                    <div className="absolute inset-0 shimmer"></div>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
                   <span>{cpuUsedDisplay} / {cpuTotalDisplay}</span>
@@ -495,11 +509,13 @@ Please analyze these metrics and provide:
                   <span className="text-sm text-gray-400">{memUsagePercent}%</span>
                 </div>
                 
-                <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden relative">
                   <div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-pink-400 transition-all"
+                    className="h-full bg-gradient-to-r from-purple-500 via-pink-400 to-purple-500 transition-all duration-700 ease-out relative animate-gradient"
                     style={{ width: `${memUsagePercent}%` }}
-                  />
+                  >
+                    <div className="absolute inset-0 shimmer"></div>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
                   <span>{memUsedDisplay} / {memTotalDisplay}</span>
@@ -511,11 +527,11 @@ Please analyze these metrics and provide:
           {/* Pod Capacity & Trends - Side by Side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Pod Capacity - Compact */}
-            <Card>
+            <Card className="scale-in group" style={{ animationDelay: '250ms' }}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <CardTitle className="text-sm">Pod Capacity</CardTitle>
-                  <BoxIcon className="text-purple-400" size={16} />
+                  <BoxIcon className="text-purple-400 group-hover:rotate-12 transition-transform" size={16} />
                 </div>
                 
                 <div className="flex items-center justify-center py-4">
@@ -539,12 +555,13 @@ Please analyze these metrics and provide:
                         fill="none"
                         strokeDasharray={`${2 * Math.PI * 50}`}
                         strokeDashoffset={`${2 * Math.PI * 50 * (1 - podUsagePercent / 100)}`}
-                        className="transition-all duration-500"
+                        className="transition-all duration-700 ease-out"
                         strokeLinecap="round"
                       />
                       <defs>
-                        <linearGradient id="podGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <linearGradient id="podGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                           <stop offset="0%" stopColor="#8b5cf6" />
+                          <stop offset="50%" stopColor="#a855f7" />
                           <stop offset="100%" stopColor="#ec4899" />
                         </linearGradient>
                       </defs>
@@ -574,11 +591,11 @@ Please analyze these metrics and provide:
             </Card>
 
             {/* Resource Trends - Compact */}
-            <Card>
+            <Card className="scale-in group" style={{ animationDelay: '300ms' }}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <CardTitle className="text-sm">24h Trends</CardTitle>
-                  <TrendingUp className="text-cyan-400" size={16} />
+                  <TrendingUp className="text-cyan-400 group-hover:translate-y-[-2px] transition-transform" size={16} />
                 </div>
                 
                 <div className="h-32 flex items-end justify-between gap-1">
@@ -588,15 +605,15 @@ Please analyze these metrics and provide:
                     const memHeight = (point.memory / maxHeight) * 100;
                     
                     return (
-                      <div key={idx} className="flex-1 flex flex-col gap-0.5 items-center">
+                      <div key={idx} className="flex-1 flex flex-col gap-0.5 items-center group/bar" style={{ animationDelay: `${idx * 50}ms` }}>
                         <div 
-                          className="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t transition-all hover:opacity-80"
+                          className="w-full bg-gradient-to-t from-blue-500 via-cyan-400 to-blue-300 rounded-t transition-all duration-300 hover:opacity-80 hover:scale-110 origin-bottom scale-in"
                           style={{ height: `${cpuHeight}%` }}
                           title={`CPU: ${point.cpu.toFixed(1)}%`}
                         />
                         <div 
-                          className="w-full bg-gradient-to-t from-purple-500 to-pink-400 rounded-t transition-all hover:opacity-80"
-                          style={{ height: `${memHeight}%` }}
+                          className="w-full bg-gradient-to-t from-purple-500 via-pink-400 to-purple-300 rounded-t transition-all duration-300 hover:opacity-80 hover:scale-110 origin-bottom scale-in"
+                          style={{ height: `${memHeight}%`, animationDelay: `${idx * 50 + 25}ms` }}
                           title={`Memory: ${point.memory.toFixed(1)}%`}
                         />
                       </div>
@@ -606,11 +623,11 @@ Please analyze these metrics and provide:
                 
                 <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-gray-700/50">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-blue-500 to-cyan-400 rounded"></div>
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-blue-500 to-cyan-400 rounded animate-pulse"></div>
                     <span className="text-xs text-gray-400">CPU</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-pink-400 rounded"></div>
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-pink-400 rounded animate-pulse"></div>
                     <span className="text-xs text-gray-400">Memory</span>
                   </div>
                 </div>
@@ -622,10 +639,10 @@ Please analyze these metrics and provide:
         {/* Right Column - Compact Additional Info */}
         <div className="space-y-4">
           {/* Cluster Health - Compact */}
-          <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
+          <Card className="bg-gradient-to-br from-green-500/10 via-emerald-500/10 to-green-500/10 border-green-500/20 scale-in animate-gradient group" style={{ animationDelay: '350ms' }}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="text-green-400" size={18} />
+                <CheckCircle className="text-green-400 group-hover:scale-110 transition-transform" size={18} />
                 <CardTitle className="text-sm">Cluster Health</CardTitle>
               </div>
               <p className="text-2xl font-bold text-green-400 mb-1">Healthy</p>
@@ -637,22 +654,24 @@ Please analyze these metrics and provide:
 
           {/* Storage - Compact */}
           {displayData.storage && (
-            <Card>
+            <Card className="scale-in group" style={{ animationDelay: '400ms' }}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <HardDrive className="text-orange-400" size={16} />
+                    <HardDrive className="text-orange-400 group-hover:rotate-12 transition-transform" size={16} />
                     <CardTitle className="text-sm">Storage</CardTitle>
                   </div>
                   <span className="text-xs text-gray-500">{storagePercent}%</span>
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden relative">
                     <div 
-                      className="h-full bg-gradient-to-r from-orange-500 to-red-400"
+                      className="h-full bg-gradient-to-r from-orange-500 via-red-400 to-orange-500 transition-all duration-700 ease-out animate-gradient"
                       style={{ width: `${storagePercent}%` }}
-                    />
+                    >
+                      <div className="absolute inset-0 shimmer"></div>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-400">
                     <span>{storageUsedDisplay} bound</span>
@@ -665,30 +684,30 @@ Please analyze these metrics and provide:
 
           {/* Network - Compact */}
           {displayData.network && (
-            <Card>
+            <Card className="scale-in group" style={{ animationDelay: '450ms' }}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Network className="text-cyan-400" size={16} />
+                  <Network className="text-cyan-400 group-hover:scale-110 transition-transform" size={16} />
                   <CardTitle className="text-sm">Network</CardTitle>
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                  <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded group/item hover:bg-gray-800/50 transition-colors">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
                       <span className="text-xs text-gray-400">Ingress</span>
                     </div>
-                    <span className="text-sm font-bold text-gray-100">
+                    <span className="text-sm font-bold text-gray-100 group-hover/item:text-green-400 transition-colors">
                       {displayData.network.ingress} <span className="text-xs text-gray-500">MB/s</span>
                     </span>
                   </div>
                   
-                  <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded">
+                  <div className="flex items-center justify-between p-2 bg-gray-800/30 rounded group/item hover:bg-gray-800/50 transition-colors">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
                       <span className="text-xs text-gray-400">Egress</span>
                     </div>
-                    <span className="text-sm font-bold text-gray-100">
+                    <span className="text-sm font-bold text-gray-100 group-hover/item:text-blue-400 transition-colors">
                       {displayData.network.egress} <span className="text-xs text-gray-500">MB/s</span>
                     </span>
                   </div>
@@ -699,22 +718,22 @@ Please analyze these metrics and provide:
 
           {/* Events/Alerts - Compact */}
           {displayData.events && (
-            <Card>
+            <Card className="scale-in" style={{ animationDelay: '500ms' }}>
               <CardContent className="p-4">
                 <CardTitle className="text-sm mb-3">Events</CardTitle>
                 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                  <div className="flex items-center justify-between p-2 bg-yellow-500/10 border border-yellow-500/20 rounded hover:bg-yellow-500/20 transition-all group">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="text-yellow-400" size={14} />
+                      <AlertTriangle className="text-yellow-400 group-hover:scale-110 transition-transform" size={14} />
                       <span className="text-xs text-gray-300">Warnings</span>
                     </div>
                     <span className="text-sm font-bold text-yellow-400">{displayData.events.warnings}</span>
                   </div>
                   
-                  <div className="flex items-center justify-between p-2 bg-red-500/10 border border-red-500/20 rounded">
+                  <div className="flex items-center justify-between p-2 bg-red-500/10 border border-red-500/20 rounded hover:bg-red-500/20 transition-all group">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="text-red-400" size={14} />
+                      <AlertTriangle className="text-red-400 group-hover:scale-110 transition-transform" size={14} />
                       <span className="text-xs text-gray-300">Errors</span>
                     </div>
                     <span className="text-sm font-bold text-red-400">{displayData.events.errors}</span>
