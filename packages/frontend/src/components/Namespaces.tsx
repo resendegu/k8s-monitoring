@@ -114,17 +114,19 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
   return (
     <div className="space-y-4">
       {/* Header with AI Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between fade-in">
         <div className="flex items-center gap-2">
-          <FolderTree size={18} className="text-cyan-400" />
-          <h2 className="text-2xl font-bold text-gray-100">Namespaces</h2>
+          <FolderTree size={18} className="text-cyan-400 animate-pulse" />
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
+            Namespaces
+          </h2>
         </div>
         
         <button
           onClick={analyzeNamespaces}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl hover:shadow-purple-500/50 hover:scale-105 animate-gradient group"
         >
-          <Sparkles size={18} />
+          <Sparkles size={18} className="group-hover:rotate-12 transition-transform" />
           <span>AI Analysis</span>
         </button>
       </div>
@@ -132,16 +134,16 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
       {/* AI Analysis Dialog */}
       {showAIDialog && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 fade-in"
           onClick={() => !aiAnalyzing && setShowAIDialog(false)}
         >
           <div 
-            className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto shadow-2xl"
+            className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto shadow-2xl scale-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-4 flex items-center justify-between">
+            <div className="sticky top-0 glass border-b border-gray-700 p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg">
+                <div className={`p-2 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg ${aiAnalyzing ? 'ai-thinking animate-gradient' : ''}`}>
                   <Sparkles className="text-white" size={20} />
                 </div>
                 <h3 className="text-xl font-bold text-gray-100">AI Namespace Analysis</h3>
@@ -149,7 +151,7 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
               {!aiAnalyzing && (
                 <button
                   onClick={() => setShowAIDialog(false)}
-                  className="text-gray-400 hover:text-gray-100 transition-colors"
+                  className="text-gray-400 hover:text-gray-100 transition-colors hover:rotate-90 duration-300"
                 >
                   <X size={20} />
                 </button>
@@ -159,11 +161,14 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
             <div className="p-6">
               {aiAnalyzing ? (
                 <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                  <p className="text-gray-400">Analyzing namespaces...</p>
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-20 blur-xl animate-pulse"></div>
+                  </div>
+                  <p className="text-gray-400 ai-thinking">Analyzing namespaces...</p>
                 </div>
               ) : (
-                <div className="prose prose-invert max-w-none">
+                <div className="prose prose-invert max-w-none fade-in">
                   <div className="whitespace-pre-wrap text-gray-300 text-sm leading-relaxed">
                     {aiInsights}
                   </div>
@@ -172,10 +177,10 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
             </div>
             
             {!aiAnalyzing && (
-              <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 p-4 flex justify-end gap-3">
+              <div className="sticky bottom-0 glass border-t border-gray-700 p-4 flex justify-end gap-3">
                 <button
                   onClick={() => setShowAIDialog(false)}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition-all"
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition-all hover:scale-105"
                 >
                   Close
                 </button>
@@ -194,18 +199,22 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
 
       {/* Namespaces Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {displayData.map((ns) => (
-          <Card key={ns.name} className="hover:border-cyan-500/30 transition-all">
+        {displayData.map((ns, index) => (
+          <Card 
+            key={ns.name} 
+            className="hover:border-cyan-500/30 transition-all group scale-in" 
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-500/10 rounded-lg">
-                    <FolderTree className="text-cyan-400" size={20} />
+                  <div className="p-2 bg-cyan-500/10 rounded-lg group-hover:bg-cyan-500/20 transition-colors">
+                    <FolderTree className="text-cyan-400 group-hover:scale-110 transition-transform" size={20} />
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-gray-100">{ns.name}</h3>
                     <p className="text-xs text-green-400 flex items-center gap-1">
-                      <CheckCircle size={12} />
+                      <CheckCircle size={12} className="animate-pulse" />
                       {ns.status}
                     </p>
                   </div>
@@ -240,7 +249,7 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
               </div>
 
               {/* Resource Usage */}
-              <div className="pt-3 border-t border-gray-700/50 space-y-2">
+              <div className="pt-3 border-t border-gray-700/50 space-y-2 group-hover:border-gray-600/50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Cpu size={12} className="text-blue-400" />
