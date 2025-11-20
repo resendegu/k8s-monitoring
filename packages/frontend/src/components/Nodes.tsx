@@ -12,6 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
+import { formatCPU, formatMemory, getCPUPercentage, getMemoryPercentage } from '../helpers';
 
 type Node = {
   name: string;
@@ -20,14 +21,17 @@ type Node = {
   cpuUsage: string;
   memoryUsage: string;
   pods: number;
+  podCapacity?: number;
+  cpuCapacity?: string;
+  memoryCapacity?: string;
 };
 
 // Mock data based on the provided cluster profile
 const mockData: Node[] = [
-  { name: 'node-1', roles: 'worker', version: 'v1.34.1', cpuUsage: '12%', memoryUsage: '61%', pods: 8 },
-  { name: 'node-2', roles: 'worker', version: 'v1.34.1', cpuUsage: '8%', memoryUsage: '55%', pods: 10 },
-  { name: 'node-3', roles: 'worker', version: 'v1.34.1', cpuUsage: '5%', memoryUsage: '48%', pods: 5 },
-  { name: 'node-4', roles: 'worker', version: 'v1.34.1', cpuUsage: '2%', memoryUsage: '39%', pods: 2 },
+  { name: 'node-1', roles: 'worker', version: 'v1.34.1', cpuUsage: '120000000n', memoryUsage: '2457600Ki', pods: 8, podCapacity: 110, cpuCapacity: '2000000000n', memoryCapacity: '4096000Ki' },
+  { name: 'node-2', roles: 'worker', version: 'v1.34.1', cpuUsage: '80000000n', memoryUsage: '2252800Ki', pods: 10, podCapacity: 110, cpuCapacity: '2000000000n', memoryCapacity: '4096000Ki' },
+  { name: 'node-3', roles: 'worker', version: 'v1.34.1', cpuUsage: '50000000n', memoryUsage: '1966080Ki', pods: 5, podCapacity: 110, cpuCapacity: '2000000000n', memoryCapacity: '4096000Ki' },
+  { name: 'node-4', roles: 'worker', version: 'v1.34.1', cpuUsage: '20000000n', memoryUsage: '1597440Ki', pods: 2, podCapacity: 110, cpuCapacity: '2000000000n', memoryCapacity: '4096000Ki' },
 ];
 
 const fetchNodesData = async (): Promise<Node[]> => {
@@ -42,33 +46,47 @@ function generateNodeAIInsights(nodes: Node[]): string {
   insights.push('**📊 Node Analysis**\n');
   insights.push(`You have ${nodes.length} worker nodes in your cluster.`);
   
-  const avgCpu = nodes.reduce((sum, n) => sum + parseInt(n.cpuUsage), 0) / nodes.length;
-  const avgMem = nodes.reduce((sum, n) => sum + parseInt(n.memoryUsage), 0) / nodes.length;
+  // Calculate average CPU and memory usage (as percentage if capacity is available)
+  let totalCpuPercent = 0;
+  let totalMemPercent = 0;
+  let nodesWithMetrics = 0;
   
-  insights.push(`\n**🔵 Average CPU Usage: ${avgCpu.toFixed(1)}%**`);
-  if (avgCpu < 30) {
-    insights.push('CPU utilization is low across all nodes. Consider optimizing resource allocation.');
-  } else if (avgCpu < 70) {
-    insights.push('CPU utilization is healthy across nodes.');
-  } else {
-    insights.push('CPU utilization is high. Consider adding more nodes or optimizing workloads.');
-  }
+  nodes.forEach(node => {
+    if (node.cpuUsage !== 'N/A' && node.memoryUsage !== 'N/A') {
+      // Extract numeric values for rough estimation
+      const cpuUsageStr = node.cpuUsage.replace(/[nm]/g, '');
+      const memUsageStr = node.memoryUsage.replace(/[KiMG]/g, '');
+      
+      if (!isNaN(parseFloat(cpuUsageStr)) && !isNaN(parseFloat(memUsageStr))) {
+        nodesWithMetrics++;
+        // Rough estimation - actual percentages would require capacity
+        totalCpuPercent += parseFloat(cpuUsageStr) / 100000000; // Approximate
+        totalMemPercent += parseFloat(memUsageStr) / 20000; // Approximate
+      }
+    }
+  });
   
-  insights.push(`\n**🟣 Average Memory Usage: ${avgMem.toFixed(1)}%**`);
-  if (avgMem < 50) {
-    insights.push('Memory utilization is healthy across nodes.');
-  } else if (avgMem < 80) {
-    insights.push('Memory usage is moderate. Monitor for memory-intensive workloads.');
-  } else {
-    insights.push('Memory usage is high. Consider adding more nodes or optimizing memory usage.');
-  }
-  
-  const highLoadNodes = nodes.filter(n => parseInt(n.cpuUsage) > 70 || parseInt(n.memoryUsage) > 70);
-  if (highLoadNodes.length > 0) {
-    insights.push(`\n**⚠️ High Load Nodes:**`);
-    highLoadNodes.forEach(node => {
-      insights.push(`• ${node.name}: CPU ${node.cpuUsage}, Memory ${node.memoryUsage}`);
-    });
+  if (nodesWithMetrics > 0) {
+    const avgCpu = totalCpuPercent / nodesWithMetrics;
+    const avgMem = totalMemPercent / nodesWithMetrics;
+    
+    insights.push(`\n**🔵 Average CPU Usage: ~${avgCpu.toFixed(1)}%**`);
+    if (avgCpu < 30) {
+      insights.push('CPU utilization is low across all nodes. Consider optimizing resource allocation.');
+    } else if (avgCpu < 70) {
+      insights.push('CPU utilization is healthy across nodes.');
+    } else {
+      insights.push('CPU utilization is high. Consider adding more nodes or optimizing workloads.');
+    }
+    
+    insights.push(`\n**🟣 Average Memory Usage: ~${avgMem.toFixed(1)}%**`);
+    if (avgMem < 50) {
+      insights.push('Memory utilization is healthy across nodes.');
+    } else if (avgMem < 80) {
+      insights.push('Memory usage is moderate. Monitor for memory-intensive workloads.');
+    } else {
+      insights.push('Memory usage is high. Consider adding more nodes or optimizing memory usage.');
+    }
   }
   
   insights.push('\n**💡 Recommendations:**');
@@ -212,8 +230,31 @@ export default function Nodes({ isConnected }: { isConnected: boolean }) {
       {/* Nodes Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {displayData.map((node) => {
-          const cpuPercent = parseInt(node.cpuUsage);
-          const memPercent = parseInt(node.memoryUsage);
+          // Format values for display using helpers
+          const cpuDisplay = formatCPU(node.cpuUsage);
+          const memDisplay = formatMemory(node.memoryUsage);
+
+          const cpuCapacityDisplay = node.cpuCapacity ? formatCPU(node.cpuCapacity) : 'N/A';
+          const memCapacityDisplay = node.memoryCapacity ? formatMemory(node.memoryCapacity) : 'N/A';
+          
+          // Calculate percentages using helper functions
+          let cpuPercent = 0;
+          let memPercent = 0;
+          
+          if (node.cpuCapacity && node.memoryCapacity) {
+            // Use helper functions to calculate accurate percentages
+            // For CPU: convert capacity to cores (nanocores / 1 billion)
+            const cpuCapacityInCores = parseFloat(node.cpuCapacity.replace(/n$/i, '')) / 1_000_000_000;
+            cpuPercent = getCPUPercentage(node.cpuUsage, cpuCapacityInCores);
+            
+            // For memory: use the helper that handles Ki/Mi/Gi conversions
+            memPercent = getMemoryPercentage(node.memoryUsage, node.memoryCapacity);
+          } else {
+            // Fallback: estimate with assumed 2 cores and 4GB capacity
+            cpuPercent = getCPUPercentage(node.cpuUsage, 2);
+            memPercent = getMemoryPercentage(node.memoryUsage, '4Gi');
+          }
+          
           const isHealthy = cpuPercent < 70 && memPercent < 70;
           
           return (
@@ -243,14 +284,14 @@ export default function Nodes({ isConnected }: { isConnected: boolean }) {
                       <Cpu size={14} className="text-blue-400" />
                       <span className="text-xs font-medium text-gray-300">CPU</span>
                     </div>
-                    <span className="text-xs text-gray-400">{node.cpuUsage}</span>
+                    <span className="text-xs text-gray-400">{cpuDisplay} / {cpuCapacityDisplay}</span>
                   </div>
                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div 
                       className={`h-full transition-all ${
                         cpuPercent > 70 ? 'bg-red-500' : 'bg-gradient-to-r from-blue-500 to-cyan-400'
                       }`}
-                      style={{ width: node.cpuUsage }}
+                      style={{ width: `${Math.min(cpuPercent, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -262,14 +303,14 @@ export default function Nodes({ isConnected }: { isConnected: boolean }) {
                       <MemoryStick size={14} className="text-purple-400" />
                       <span className="text-xs font-medium text-gray-300">Memory</span>
                     </div>
-                    <span className="text-xs text-gray-400">{node.memoryUsage}</span>
+                    <span className="text-xs text-gray-400">{memDisplay} / {memCapacityDisplay}</span>
                   </div>
                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div 
                       className={`h-full transition-all ${
                         memPercent > 70 ? 'bg-red-500' : 'bg-gradient-to-r from-purple-500 to-pink-400'
                       }`}
-                      style={{ width: node.memoryUsage }}
+                      style={{ width: `${Math.min(memPercent, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -280,7 +321,9 @@ export default function Nodes({ isConnected }: { isConnected: boolean }) {
                     <BoxIcon size={14} className="text-cyan-400" />
                     <span className="text-xs text-gray-400">Pods</span>
                   </div>
-                  <span className="text-sm font-bold text-gray-100">{node.pods}</span>
+                  <span className="text-sm font-bold text-gray-100">
+                    {node.pods}{node.podCapacity ? `/${node.podCapacity}` : ''}
+                  </span>
                 </div>
               </CardContent>
             </Card>

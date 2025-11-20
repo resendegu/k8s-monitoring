@@ -50,52 +50,56 @@ export async function getClusterOverview(kc: k8s.KubeConfig) {
     try {
       nodeMetrics = await metrics.getNodeMetrics();
     } catch (error) {
-      console.warn('Metrics server not available, using capacity as fallback');
+      console.warn('Metrics server not available');
       nodeMetrics = null;
     }
 
-    // Helper function to parse CPU from Kubernetes format
-    const parseCpu = (cpuStr: string): number => {
+    // Helper to convert CPU to nanocores
+    const toNanocores = (cpuStr: string): number => {
       if (!cpuStr) return 0;
       if (cpuStr.endsWith('m')) {
-        return parseFloat(cpuStr.slice(0, -1)) / 1000; // Convert millicores to cores
+        return parseFloat(cpuStr.slice(0, -1)) * 1000000; // millicores to nanocores
       }
       if (cpuStr.endsWith('n')) {
-        return parseFloat(cpuStr.slice(0, -1)) / 1000000000; // Convert nanocores to cores
+        return parseFloat(cpuStr.slice(0, -1)); // already nanocores
       }
-      return parseFloat(cpuStr);
+      return parseFloat(cpuStr) * 1000000000; // cores to nanocores
     };
 
-    // Helper function to parse memory from Kubernetes format to GB
-    const parseMemory = (memStr: string): number => {
+    // Helper to convert memory to Ki
+    const toKibibytes = (memStr: string): number => {
       if (!memStr) return 0;
       if (memStr.endsWith('Ki')) {
-        return parseFloat(memStr.slice(0, -2)) / (1024 * 1024); // KB to GB
+        return parseFloat(memStr.slice(0, -2));
       }
       if (memStr.endsWith('Mi')) {
-        return parseFloat(memStr.slice(0, -2)) / 1024; // MB to GB
+        return parseFloat(memStr.slice(0, -2)) * 1024;
       }
       if (memStr.endsWith('Gi')) {
-        return parseFloat(memStr.slice(0, -2)); // Already in GB
+        return parseFloat(memStr.slice(0, -2)) * 1024 * 1024;
       }
-      return parseFloat(memStr) / (1024 * 1024 * 1024); // Bytes to GB
+      if (memStr.endsWith('Ti')) {
+        return parseFloat(memStr.slice(0, -2)) * 1024 * 1024 * 1024;
+      }
+      // Assume bytes
+      return parseFloat(memStr) / 1024;
     };
 
-    // Calculate node CPU and memory metrics
-    let totalCpu = 0;
-    let totalMemory = 0;
-    let usedCpu = 0;
-    let usedMemory = 0;
-    let requestedCpu = 0;
-    let requestedMemory = 0;
-    let limitCpu = 0;
-    let limitMemory = 0;
+    // Aggregate node resources
+    let totalCpuNanocores = 0;
+    let totalMemoryKi = 0;
+    let usedCpuNanocores = 0;
+    let usedMemoryKi = 0;
+    let requestedCpuNanocores = 0;
+    let requestedMemoryKi = 0;
+    let limitCpuNanocores = 0;
+    let limitMemoryKi = 0;
 
     // Get total capacity from nodes
     nodes.body.items.forEach(node => {
       if (node.status?.capacity) {
-        totalCpu += parseCpu(node.status.capacity.cpu || '0');
-        totalMemory += parseMemory(node.status.capacity.memory || '0');
+        totalCpuNanocores += toNanocores(node.status.capacity.cpu || '0');
+        totalMemoryKi += toKibibytes(node.status.capacity.memory || '0');
       }
     });
 
@@ -103,16 +107,8 @@ export async function getClusterOverview(kc: k8s.KubeConfig) {
     if (nodeMetrics?.items) {
       nodeMetrics.items.forEach(metric => {
         if (metric.usage) {
-          usedCpu += parseCpu(metric.usage.cpu || '0');
-          usedMemory += parseMemory(metric.usage.memory || '0');
-        }
-      });
-    } else {
-      // Fallback: use allocatable as an estimate (typically ~90% of capacity)
-      nodes.body.items.forEach(node => {
-        if (node.status?.allocatable) {
-          usedCpu += parseCpu(node.status.allocatable.cpu || '0') * 0.5; // Assume 50% usage
-          usedMemory += parseMemory(node.status.allocatable.memory || '0') * 0.5;
+          usedCpuNanocores += toNanocores(metric.usage.cpu || '0');
+          usedMemoryKi += toKibibytes(metric.usage.memory || '0');
         }
       });
     }
@@ -122,12 +118,12 @@ export async function getClusterOverview(kc: k8s.KubeConfig) {
       if (pod.spec?.containers) {
         pod.spec.containers.forEach(container => {
           if (container.resources?.requests) {
-            requestedCpu += parseCpu(container.resources.requests.cpu || '0');
-            requestedMemory += parseMemory(container.resources.requests.memory || '0');
+            requestedCpuNanocores += toNanocores(container.resources.requests.cpu || '0');
+            requestedMemoryKi += toKibibytes(container.resources.requests.memory || '0');
           }
           if (container.resources?.limits) {
-            limitCpu += parseCpu(container.resources.limits.cpu || '0');
-            limitMemory += parseMemory(container.resources.limits.memory || '0');
+            limitCpuNanocores += toNanocores(container.resources.limits.cpu || '0');
+            limitMemoryKi += toKibibytes(container.resources.limits.memory || '0');
           }
         });
       }
@@ -164,18 +160,20 @@ export async function getClusterOverview(kc: k8s.KubeConfig) {
       }
     });
 
-    // Try to get storage information from PVs
-    let storageUsed = 0;
-    let storageTotal = 0;
+    // Try to get storage information from PVs (capacity only, not actual usage)
+    let storageTotalKi = 0;
+    let storageBoundKi = 0;
+    let pvCount = 0;
     try {
       const pvs = await coreV1Api.listPersistentVolume();
+      pvCount = pvs.body.items.length;
       pvs.body.items.forEach(pv => {
         if (pv.spec?.capacity?.storage) {
-          const storage = parseMemory(pv.spec.capacity.storage);
-          storageTotal += storage;
-          // If bound, consider it used
+          const capacityKi = toKibibytes(pv.spec.capacity.storage);
+          storageTotalKi += capacityKi;
+          // If bound, count as "used" (though we don't know actual disk usage)
           if (pv.status?.phase === 'Bound') {
-            storageUsed += storage;
+            storageBoundKi += capacityKi;
           }
         }
       });
@@ -190,16 +188,16 @@ export async function getClusterOverview(kc: k8s.KubeConfig) {
           n.status?.conditions?.some(c => c.type === 'Ready' && c.status === 'True')
         ).length,
         cpu: {
-          used: Math.round(usedCpu * 100) / 100,
-          total: Math.round(totalCpu * 100) / 100,
-          requests: Math.round(requestedCpu * 100) / 100,
-          limits: Math.round(limitCpu * 100) / 100,
+          used: usedCpuNanocores > 0 ? `${Math.round(usedCpuNanocores)}n` : null,
+          total: `${Math.round(totalCpuNanocores)}n`,
+          requests: `${Math.round(requestedCpuNanocores)}n`,
+          limits: `${Math.round(limitCpuNanocores)}n`,
         },
         memory: {
-          used: Math.round(usedMemory * 100) / 100,
-          total: Math.round(totalMemory * 100) / 100,
-          requests: Math.round(requestedMemory * 100) / 100,
-          limits: Math.round(limitMemory * 100) / 100,
+          used: usedMemoryKi > 0 ? `${Math.round(usedMemoryKi)}Ki` : null,
+          total: `${Math.round(totalMemoryKi)}Ki`,
+          requests: `${Math.round(requestedMemoryKi)}Ki`,
+          limits: `${Math.round(limitMemoryKi)}Ki`,
         },
       },
       pods: {
@@ -220,11 +218,13 @@ export async function getClusterOverview(kc: k8s.KubeConfig) {
         warnings,
         errors,
       },
-      // Only include storage if we have data
-      ...(storageTotal > 0 && {
+      // Include storage info if available
+      ...(pvCount > 0 && {
         storage: {
-          used: Math.round(storageUsed * 100) / 100,
-          total: Math.round(storageTotal * 100) / 100,
+          // Note: This is capacity, not actual disk usage (not available from K8s API)
+          totalCapacity: `${Math.round(storageTotalKi)}Ki`,
+          boundCapacity: `${Math.round(storageBoundKi)}Ki`, // Capacity of bound PVs
+          volumeCount: pvCount,
         },
       }),
     };
@@ -244,13 +244,19 @@ export async function getNodes(kc: k8s.KubeConfig) {
 
   return nodes.body.items.map(node => {
     const metricsData = nodeMetrics.items.find(m => m.metadata.name === node.metadata?.name);
+    const nodePods = pods.body.items.filter(p => p.spec?.nodeName === node.metadata?.name);
+    const podCapacity = node.status?.capacity?.pods ? parseInt(node.status.capacity.pods) : undefined;
+    
     return {
       name: node.metadata?.name,
       roles: Object.keys(node.metadata?.labels || {}).find(l => l.startsWith('node-role.kubernetes.io/'))?.split('/')[1] || 'worker',
       version: node.status?.nodeInfo?.kubeletVersion,
       cpuUsage: metricsData?.usage.cpu || 'N/A',
       memoryUsage: metricsData?.usage.memory || 'N/A',
-      pods: pods.body.items.filter(p => p.spec?.nodeName === node.metadata?.name).length,
+      cpuCapacity: node.status?.capacity?.cpu ? `${parseFloat(node.status.capacity.cpu) * 1000000000}n` : undefined,
+      memoryCapacity: node.status?.capacity?.memory || undefined,
+      pods: nodePods.length,
+      podCapacity: podCapacity,
     };
   });
 }
@@ -295,53 +301,141 @@ export async function getNamespaces(kc: k8s.KubeConfig) {
   return namespaces.body.items.map(ns => {
     const nsName = ns.metadata?.name;
     const nsPods = pods.body.items.filter(p => p.metadata?.namespace === nsName);
+    const nsDeployments = deployments.body.items.filter(d => d.metadata?.namespace === nsName);
+    const nsStatefulSets = statefulsets.body.items.filter(s => s.metadata?.namespace === nsName);
     const nsPodMetrics = podMetrics.items.filter(m => m.metadata.namespace === nsName);
 
-    // Parse CPU and memory from strings like "100m" and "256Mi"
-    const parseCpu = (cpuStr: string) => {
-      if (cpuStr.endsWith('m')) {
-        return parseFloat(cpuStr.slice(0, -1));
-      }
-      return parseFloat(cpuStr) * 1000;
-    };
-
-    const parseMem = (memStr: string) => {
-      if (memStr.endsWith('Ki')) {
-        return parseFloat(memStr.slice(0, -2)) * 1024;
-      }
-      if (memStr.endsWith('Mi')) {
-        return parseFloat(memStr.slice(0, -2)) * 1024 * 1024;
-      }
-      if (memStr.endsWith('Gi')) {
-        return parseFloat(memStr.slice(0, -2)) * 1024 * 1024 * 1024;
-      }
-      return parseFloat(memStr);
-    };
-
-    const cpu = nsPodMetrics.reduce((acc, m) => {
-      if (m.containers[0]?.usage?.cpu) {
-        return acc + parseCpu(m.containers[0].usage.cpu);
-      }
-      return acc;
-    }, 0);
-
-    const memory = nsPodMetrics.reduce((acc, m) => {
-      if (m.containers[0]?.usage?.memory) {
-        return acc + parseMem(m.containers[0].usage.memory);
-      }
-      return acc;
-    }, 0);
+    // Aggregate CPU and memory usage from all containers in all pods
+    let totalCpuUsage = '0n';
+    let totalMemoryUsage = '0Ki';
+    
+    if (nsPodMetrics.length > 0) {
+      // Sum up all container metrics
+      let cpuNanocores = 0;
+      let memoryKibibytes = 0;
+      
+      nsPodMetrics.forEach(podMetric => {
+        podMetric.containers.forEach(container => {
+          if (container.usage?.cpu) {
+            // Convert to nanocores
+            const cpuStr = container.usage.cpu;
+            if (cpuStr.endsWith('n')) {
+              cpuNanocores += parseFloat(cpuStr.slice(0, -1));
+            } else if (cpuStr.endsWith('m')) {
+              cpuNanocores += parseFloat(cpuStr.slice(0, -1)) * 1000000; // millicores to nanocores
+            } else {
+              cpuNanocores += parseFloat(cpuStr) * 1000000000; // cores to nanocores
+            }
+          }
+          
+          if (container.usage?.memory) {
+            // Convert to Ki
+            const memStr = container.usage.memory;
+            if (memStr.endsWith('Ki')) {
+              memoryKibibytes += parseFloat(memStr.slice(0, -2));
+            } else if (memStr.endsWith('Mi')) {
+              memoryKibibytes += parseFloat(memStr.slice(0, -2)) * 1024;
+            } else if (memStr.endsWith('Gi')) {
+              memoryKibibytes += parseFloat(memStr.slice(0, -2)) * 1024 * 1024;
+            }
+          }
+        });
+      });
+      
+      totalCpuUsage = `${Math.round(cpuNanocores)}n`;
+      totalMemoryUsage = `${Math.round(memoryKibibytes)}Ki`;
+    }
 
     return {
       name: nsName,
       status: ns.status?.phase,
       pods: nsPods.length,
-      deployments: deployments.body.items.filter(d => d.metadata?.namespace === nsName).length,
-      statefulsets: statefulsets.body.items.filter(s => s.metadata?.namespace === nsName).length,
-      cpu: `${cpu.toFixed(2)}m`,
-      memory: `${(memory / 1024 / 1024).toFixed(2)}Mi`,
+      deployments: nsDeployments.length,
+      statefulsets: nsStatefulSets.length,
+      cpuUsage: totalCpuUsage,
+      memoryUsage: totalMemoryUsage,
     };
   });
+}
+
+/**
+ * Get detailed storage information (PersistentVolumes and PersistentVolumeClaims)
+ * 
+ * IMPORTANT: Kubernetes API does NOT provide actual disk usage information.
+ * What we can get:
+ * - PV/PVC capacity (size allocated)
+ * - Status (Bound, Available, Pending, etc.)
+ * - StorageClass, AccessModes
+ * 
+ * What we CANNOT get:
+ * - Actual bytes used on disk
+ * - Free space on the volume
+ * - Real-time usage metrics
+ * 
+ * To get actual disk usage, you would need:
+ * 1. Node exporter with filesystem metrics (Prometheus)
+ * 2. CSI driver metrics (if supported by your storage provider)
+ * 3. Custom monitoring solution running in pods
+ * 4. Access to the underlying storage system's API
+ */
+export async function getStorage(kc: k8s.KubeConfig) {
+  const { coreV1Api } = createK8sApis(kc);
+  
+  try {
+    const [pvs, pvcs] = await Promise.all([
+      coreV1Api.listPersistentVolume(),
+      coreV1Api.listPersistentVolumeClaimForAllNamespaces(),
+    ]);
+
+    // Map PersistentVolumes
+    const persistentVolumes = pvs.body.items.map(pv => {
+      const claimRef = pv.spec?.claimRef;
+      const claim = claimRef ? `${claimRef.namespace}/${claimRef.name}` : null;
+      
+      return {
+        name: pv.metadata?.name,
+        capacity: pv.spec?.capacity?.storage || 'Unknown',
+        storageClass: pv.spec?.storageClassName || 'default',
+        status: pv.status?.phase || 'Unknown',
+        claim: claim,
+        reclaimPolicy: pv.spec?.persistentVolumeReclaimPolicy || 'Unknown',
+        accessModes: pv.spec?.accessModes || [],
+        volumeMode: pv.spec?.volumeMode || 'Filesystem',
+        createdAt: pv.metadata?.creationTimestamp,
+      };
+    });
+
+    // Map PersistentVolumeClaims
+    const persistentVolumeClaims = pvcs.body.items.map(pvc => {
+      return {
+        name: pvc.metadata?.name,
+        namespace: pvc.metadata?.namespace,
+        status: pvc.status?.phase || 'Unknown',
+        volume: pvc.spec?.volumeName || 'Pending',
+        capacity: pvc.status?.capacity?.storage || pvc.spec?.resources?.requests?.storage || 'Unknown',
+        storageClass: pvc.spec?.storageClassName || 'default',
+        accessModes: pvc.spec?.accessModes || [],
+        volumeMode: pvc.spec?.volumeMode || 'Filesystem',
+        createdAt: pvc.metadata?.creationTimestamp,
+      };
+    });
+
+    return {
+      persistentVolumes,
+      persistentVolumeClaims,
+      summary: {
+        totalPVs: persistentVolumes.length,
+        boundPVs: persistentVolumes.filter(pv => pv.status === 'Bound').length,
+        availablePVs: persistentVolumes.filter(pv => pv.status === 'Available').length,
+        totalPVCs: persistentVolumeClaims.length,
+        boundPVCs: persistentVolumeClaims.filter(pvc => pvc.status === 'Bound').length,
+        pendingPVCs: persistentVolumeClaims.filter(pvc => pvc.status === 'Pending').length,
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching storage info:', error);
+    throw error;
+  }
 }
 
 export async function analyzeCluster(kc: k8s.KubeConfig, apiKey: string, provider: string, question: string): Promise<string> {
