@@ -9,7 +9,7 @@
     "packages/backend"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=packages/frontend & npm run dev --workspace=packages/backend",
+    "dev": "concurrently \"npm run dev --workspace=packages/backend\" \"npm run dev --workspace=packages/frontend\"",
     "build": "npm run build --workspace=packages/frontend && npm run build --workspace=packages/backend",
     "start": "npm run start --workspace=packages/backend"
   },
@@ -22,6 +22,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@cubos/kube-templates": "^1.0.1024145"
+    "@cubos/kube-templates": "^1.0.1024145",
+    "concurrently": "^9.2.1"
   }
 }

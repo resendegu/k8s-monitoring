@@ -10,6 +10,7 @@ import {
   getNodes,
   getWorkloads,
   getNamespaces,
+  getStorage,
   analyzeCluster,
   executeCommand,
 } from './kubernetesService';
@@ -186,6 +187,17 @@ app.get('/api/namespaces', checkSession, async (req, res) => {
   } catch (error: any) {
     console.error('Error fetching namespaces:', error);
     res.status(500).json({ error: 'Failed to fetch namespaces', details: error.message });
+  }
+});
+
+app.get('/api/storage', checkSession, async (req, res) => {
+  try {
+    const kc = getKubeConfigFromSession(req);
+    const storage = await getStorage(kc);
+    res.json(storage);
+  } catch (error: any) {
+    console.error('Error fetching storage:', error);
+    res.status(500).json({ error: 'Failed to fetch storage', details: error.message });
   }
 });
 

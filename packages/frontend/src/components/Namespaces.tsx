@@ -13,25 +13,27 @@ import {
   X
 } from 'lucide-react';
 import axios from 'axios';
+import { formatCPU, formatMemory } from '../helpers';
 
 type Namespace = {
   name: string;
   status: string;
-  pods: string;
-  deployments: string;
-  statefulsets: string;
-  cpu: string;
-  memory: string;
+  pods: number;
+  deployments: number;
+  statefulsets: number;
+  cpuUsage: string;
+  memoryUsage: string;
 };
 
 const mockData: Namespace[] = [
-  { name: 'default', status: 'Active', pods: '3', deployments: '1', statefulsets: '0', cpu: '10m', memory: '50Mi' },
-  { name: 'kube-system', status: 'Active', pods: '10', deployments: '3', statefulsets: '0', cpu: '150m', memory: '800Mi' },
-  { name: 'ingress-nginx', status: 'Active', pods: '1', deployments: '1', statefulsets: '0', cpu: '50m', memory: '200Mi' },
+  { name: 'default', status: 'Active', pods: 3, deployments: 1, statefulsets: 0, cpuUsage: '10000000n', memoryUsage: '51200Ki' },
+  { name: 'kube-system', status: 'Active', pods: 10, deployments: 3, statefulsets: 0, cpuUsage: '150000000n', memoryUsage: '819200Ki' },
+  { name: 'ingress-nginx', status: 'Active', pods: 1, deployments: 1, statefulsets: 0, cpuUsage: '50000000n', memoryUsage: '204800Ki' },
 ];
 
 const fetchNamespacesData = async (): Promise<Namespace[]> => {
   const { data } = await axios.get('/api/namespaces');
+  console.log('Fetched namespaces data:', data);
   return data;
 };
 
@@ -41,14 +43,14 @@ function generateNamespacesAIInsights(namespaces: Namespace[]): string {
   insights.push('**📁 Namespace Analysis**\n');
   insights.push(`You have ${namespaces.length} active namespaces in your cluster.`);
   
-  const totalPods = namespaces.reduce((sum, ns) => sum + parseInt(ns.pods), 0);
-  const totalDeployments = namespaces.reduce((sum, ns) => sum + parseInt(ns.deployments), 0);
+  const totalPods = namespaces.reduce((sum, ns) => sum + ns.pods, 0);
+  const totalDeployments = namespaces.reduce((sum, ns) => sum + ns.deployments, 0);
   
   insights.push(`\n**📊 Resource Distribution:**`);
   insights.push(`• Total Pods: ${totalPods}`);
   insights.push(`• Total Deployments: ${totalDeployments}`);
   
-  const busiest = [...namespaces].sort((a, b) => parseInt(b.pods) - parseInt(a.pods))[0];
+  const busiest = [...namespaces].sort((a, b) => b.pods - a.pods)[0];
   insights.push(`\n**🔥 Busiest Namespace:** ${busiest.name} with ${busiest.pods} pods`);
   
   insights.push('\n**💡 Recommendations:**');
@@ -244,7 +246,7 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
                     <Cpu size={12} className="text-blue-400" />
                     <span className="text-xs text-gray-400">CPU</span>
                   </div>
-                  <span className="text-xs font-medium text-gray-100">{ns.cpu}</span>
+                  <span className="text-xs font-medium text-gray-100">{formatCPU(ns.cpuUsage)}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -252,7 +254,7 @@ export default function Namespaces({ isConnected }: { isConnected: boolean }) {
                     <MemoryStick size={12} className="text-purple-400" />
                     <span className="text-xs text-gray-400">Memory</span>
                   </div>
-                  <span className="text-xs font-medium text-gray-100">{ns.memory}</span>
+                  <span className="text-xs font-medium text-gray-100">{formatMemory(ns.memoryUsage)}</span>
                 </div>
               </div>
             </CardContent>

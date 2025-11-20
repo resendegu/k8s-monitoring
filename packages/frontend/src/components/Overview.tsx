@@ -18,13 +18,24 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import MarkdownRenderer from './MarkdownRenderer';
+import { formatCPU, formatMemory, getMemoryPercentage } from '../helpers';
 
 interface OverviewData {
   nodes: { 
     total: number; 
     ready: number;
-    cpu: { used: number; total: number; requests: number; limits: number };
-    memory: { used: number; total: number; requests: number; limits: number };
+    cpu: { 
+      used: string | null; // nanocores format: "12000000000n"
+      total: string;       // nanocores format: "12000000000n"
+      requests: string;    // nanocores format: "12000000000n"
+      limits: string;      // nanocores format: "12000000000n"
+    };
+    memory: { 
+      used: string | null; // Ki format: "4096000Ki"
+      total: string;       // Ki format: "4096000Ki"
+      requests: string;    // Ki format: "4096000Ki"
+      limits: string;      // Ki format: "4096000Ki"
+    };
   };
   pods: { 
     total: number; 
@@ -36,17 +47,31 @@ interface OverviewData {
   namespaces: { total: number };
   deployments?: { total: number; available: number };
   events?: { warnings: number; errors: number };
-  storage?: { used: number; total: number };
+  storage?: { 
+    totalCapacity: string;  // Ki format: "4096000Ki"
+    boundCapacity: string;  // Ki format: "4096000Ki"
+    volumeCount: number;
+  };
   network?: { ingress: number; egress: number };
 }
 
-// Mock data with detailed metrics
+// Mock data with detailed metrics (using the same format as backend)
 const mockData: OverviewData = {
   nodes: { 
     total: 4, 
     ready: 4,
-    cpu: { used: 45, total: 100, requests: 30, limits: 80 },
-    memory: { used: 62, total: 100, requests: 48, limits: 85 }
+    cpu: { 
+      used: "45000000000n",  // 45 cores
+      total: "100000000000n", // 100 cores
+      requests: "30000000000n", // 30 cores
+      limits: "80000000000n"  // 80 cores
+    },
+    memory: { 
+      used: "64880640Ki",    // ~62 GB
+      total: "104857600Ki",  // ~100 GB
+      requests: "50331648Ki", // ~48 GB
+      limits: "89128960Ki"   // ~85 GB
+    }
   },
   pods: { 
     total: 25, 
@@ -58,7 +83,11 @@ const mockData: OverviewData = {
   namespaces: { total: 6 },
   deployments: { total: 15, available: 15 },
   events: { warnings: 2, errors: 0 },
-  storage: { used: 156, total: 500 },
+  storage: { 
+    totalCapacity: "524288000Ki",  // ~500 GB
+    boundCapacity: "163577856Ki",  // ~156 GB
+    volumeCount: 10
+  },
   network: { ingress: 2.4, egress: 1.8 }
 };
 
@@ -173,11 +202,11 @@ export default function Overview({ isConnected }: { isConnected: boolean }) {
 Current Cluster Metrics:
 - Nodes: ${displayData.nodes.ready}/${displayData.nodes.total} ready
 - Pods: ${displayData.pods.running}/${displayData.pods.total} running (${displayData.pods.pending} pending, ${displayData.pods.failed} failed)
-- CPU Usage: ${cpuUsagePercent}% (${displayData.nodes?.cpu?.used}/${displayData.nodes?.cpu?.total} cores)
-- Memory Usage: ${memUsagePercent}% (${displayData.nodes?.memory?.used}/${displayData.nodes?.memory?.total} GB)
+- CPU Usage: ${cpuUsagePercent}% (${cpuUsedDisplay}/${cpuTotalDisplay})
+- Memory Usage: ${memUsagePercent}% (${memUsedDisplay}/${memTotalDisplay})
 - Namespaces: ${displayData.namespaces.total}
 - Deployments: ${displayData.deployments?.available || 0} available
-- Storage: ${displayData.storage ? `${storagePercent}% used (${displayData.storage.used}/${displayData.storage.total} GB)` : 'N/A'}
+- Storage: ${displayData.storage ? `${storagePercent}% (${storageUsedDisplay}/${storageTotalDisplay} bound)` : 'N/A'}
 - Events: ${displayData.events ? `${displayData.events.warnings} warnings, ${displayData.events.errors} errors` : 'N/A'}
 
 Please analyze these metrics and provide:
@@ -196,10 +225,12 @@ Please analyze these metrics and provide:
           setAiInsights(response.data.analysis);
           setAiAnalyzing(false);
           return;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('AI Analysis error:', error);
           // Fall back to mock insights if AI is not configured
-          if (error.response?.status === 400 && error.response?.data?.error?.includes('not configured')) {
+          if (axios.isAxiosError(error) && error.response?.status === 400 && 
+              typeof error.response?.data?.error === 'string' && 
+              error.response.data.error.includes('not configured')) {
             // Generate mock insights as fallback
             setTimeout(() => {
               const mockInsights = generateMockAIInsights(displayData, cpuUsagePercent, memUsagePercent, storagePercent);
@@ -248,19 +279,34 @@ Please analyze these metrics and provide:
     return <div className="text-gray-400">No data available.</div>;
   }
 
-  // Safe access to nested properties with fallbacks
+  // Helper to convert nanocores string to cores number
+  const nanoToCore = (nanoStr: string): number => {
+    const numericValue = nanoStr.replace(/n$/i, '');
+    const nanocores = parseInt(numericValue, 10);
+    return isNaN(nanocores) ? 0 : nanocores / 1_000_000_000;
+  };
+
+  // Calculate percentages using helper functions
   const cpuUsagePercent = displayData.nodes?.cpu?.used && displayData.nodes?.cpu?.total 
-    ? Math.round((displayData.nodes.cpu.used / displayData.nodes.cpu.total) * 100) 
+    ? Math.round((nanoToCore(displayData.nodes.cpu.used) / nanoToCore(displayData.nodes.cpu.total)) * 100)
     : 0;
   const memUsagePercent = displayData.nodes?.memory?.used && displayData.nodes?.memory?.total
-    ? Math.round((displayData.nodes.memory.used / displayData.nodes.memory.total) * 100)
+    ? Math.round(getMemoryPercentage(displayData.nodes.memory.used, displayData.nodes.memory.total))
     : 0;
   const podUsagePercent = displayData.pods?.total && displayData.pods?.capacity
     ? Math.round((displayData.pods.total / displayData.pods.capacity) * 100)
     : 0;
-  const storagePercent = displayData.storage?.used && displayData.storage?.total
-    ? Math.round((displayData.storage.used / displayData.storage.total) * 100) 
+  const storagePercent = displayData.storage?.totalCapacity && displayData.storage?.boundCapacity
+    ? Math.round(getMemoryPercentage(displayData.storage.boundCapacity, displayData.storage.totalCapacity))
     : 0;
+
+  // Format display values
+  const cpuUsedDisplay = displayData.nodes?.cpu?.used ? formatCPU(displayData.nodes.cpu.used) : '0';
+  const cpuTotalDisplay = displayData.nodes?.cpu?.total ? formatCPU(displayData.nodes.cpu.total) : '0';
+  const memUsedDisplay = displayData.nodes?.memory?.used ? formatMemory(displayData.nodes.memory.used) : '0 B';
+  const memTotalDisplay = displayData.nodes?.memory?.total ? formatMemory(displayData.nodes.memory.total) : '0 B';
+  const storageUsedDisplay = displayData.storage?.boundCapacity ? formatMemory(displayData.storage.boundCapacity) : '0 B';
+  const storageTotalDisplay = displayData.storage?.totalCapacity ? formatMemory(displayData.storage.totalCapacity) : '0 B';
 
   return (
     <div className="space-y-4">
@@ -435,7 +481,7 @@ Please analyze these metrics and provide:
                   />
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
-                  <span>{displayData.nodes?.cpu?.used || 0} / {displayData.nodes?.cpu?.total || 0} cores</span>
+                  <span>{cpuUsedDisplay} / {cpuTotalDisplay}</span>
                 </div>
               </div>
 
@@ -456,7 +502,7 @@ Please analyze these metrics and provide:
                   />
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
-                  <span>{displayData.nodes?.memory?.used || 0} / {displayData.nodes?.memory?.total || 0} GB</span>
+                  <span>{memUsedDisplay} / {memTotalDisplay}</span>
                 </div>
               </div>
             </CardContent>
@@ -609,8 +655,8 @@ Please analyze these metrics and provide:
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>{displayData.storage.used} GB used</span>
-                    <span>{displayData.storage.total} GB</span>
+                    <span>{storageUsedDisplay} bound</span>
+                    <span>{storageTotalDisplay}</span>
                   </div>
                 </div>
               </CardContent>
